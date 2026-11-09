@@ -1,15 +1,111 @@
-# Local PostgreSQL for development:  docker compose up -d
+# Local development stack:  docker compose up --build
+#
+# postgres  creates the tilltree database with two roles (infrastructure/db/create_roles.sql)
+# migrate   one-off job; runs migrations as tilltree_owner, then exits
+# api       Django dev server as tilltree_app (no DDL, subject to row-level security)
+# worker    Celery worker            beat  Celery scheduler (exactly one)
+# redis     cache (db 0) and broker (db 1); production uses two separate instances
+
+x-app: &app
+  build:
+    context: .
+    target: dev
+  env_file:
+    - path: .env
+      required: false
+  volumes:
+    - .:/app
+  depends_on:
+    postgres:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+
+x-app-env: &app-env
+  DJANGO_SETTINGS_MODULE: config.settings.development
+  DB_HOST: postgres
+  DB_NAME: tilltree
+  REDIS_CACHE_URL: redis://redis:6379/0
+  CELERY_BROKER_URL: redis://redis:6379/1
+
 services:
-  db:
-    image: postgres:16
-    restart: unless-stopped
+  postgres:
+    image: postgres:17
     environment:
-      POSTGRES_DB: commerce_platform
-      POSTGRES_USER: commerce
-      POSTGRES_PASSWORD: localdevonly
+      POSTGRES_PASSWORD: ${POSTGRES_SUPERUSER_PASSWORD:-postgres_local_only}
+      TILLTREE_OWNER_PASSWORD: ${DB_OWNER_PASSWORD:-tilltree_owner_dev}
+      TILLTREE_APP_PASSWORD: ${DB_APP_PASSWORD:-tilltree_app_dev}
     ports:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+      - ./infrastructure/db/create_roles.sql:/docker-entrypoint-initdb.d/create_roles.sql.tmpl:ro
+      - ./infrastructure/docker/postgres/10-create-roles.sh:/docker-entrypoint-initdb.d/10-create-roles.sh:ro
+    healthcheck:
+      # Over TCP: while init scripts run, the temporary server listens on the Unix socket only.
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U postgres -d tilltree"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  migrate:
+    <<: *app
+    command: python manage.py migrate --noinput
+    environment:
+      <<: *app-env
+      DB_USER: tilltree_owner
+      DB_PASSWORD: ${DB_OWNER_PASSWORD:-tilltree_owner_dev}
+      DB_STATEMENT_TIMEOUT_MS: "0"
+    restart: "no"
+
+  api:
+    <<: *app
+    command: python manage.py runserver 0.0.0.0:8000
+    ports:
+      - "8000:8000"
+    environment:
+      <<: *app-env
+      DB_USER: tilltree_app
+      DB_PASSWORD: ${DB_APP_PASSWORD:-tilltree_app_dev}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+
+  worker:
+    <<: *app
+    command: celery -A config worker --loglevel=INFO --queues=default --concurrency=2
+    environment:
+      <<: *app-env
+      DB_USER: tilltree_app
+      DB_PASSWORD: ${DB_APP_PASSWORD:-tilltree_app_dev}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+
+  beat:
+    <<: *app
+    command: celery -A config beat --loglevel=INFO --schedule=/tmp/celerybeat-schedule
+    environment:
+      <<: *app-env
+      DB_USER: tilltree_app
+      DB_PASSWORD: ${DB_APP_PASSWORD:-tilltree_app_dev}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+
 volumes:
   pgdata:

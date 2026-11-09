@@ -1,6 +1,8 @@
+"""WSGI entrypoint, kept to benchmark against ASGI (docs/architecture/09-infrastructure.md)."""
+
 import os
 
 from django.core.wsgi import get_wsgi_application
 
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings.prod")
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings.production")
 application = get_wsgi_application()

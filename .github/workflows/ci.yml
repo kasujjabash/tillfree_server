@@ -1,0 +1,70 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.14"
+      - run: uv sync --frozen
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
+      - run: uv run mypy .
+      - run: uv run lint-imports
+
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DB_HOST: localhost
+      DB_USER: tilltree_owner
+      DB_PASSWORD: tilltree_owner_ci
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.14"
+      - run: uv sync --frozen
+      - name: Create database roles (same as production model)
+        env:
+          PGPASSWORD: postgres
+        run: >
+          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1
+          -v db_name=tilltree -v owner_password=tilltree_owner_ci -v app_password=tilltree_app_ci
+          -f infrastructure/db/create_roles.sql
+      - name: No missing migrations
+        run: DJANGO_SETTINGS_MODULE=config.settings.testing uv run python manage.py makemigrations --check --dry-run
+      - run: uv run pytest --cov --cov-report=term-missing --cov-fail-under=85
+
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv export --frozen --no-dev --no-hashes --format requirements-txt > requirements.txt
+      - run: uvx pip-audit --requirement requirements.txt --disable-pip
+
+  image:
+    runs-on: ubuntu-latest
+    needs: [quality, test]
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build --target production --tag tilltree:ci .

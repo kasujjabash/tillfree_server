@@ -1,0 +1,121 @@
+[project]
+name = "tilltree"
+version = "0.1.0"
+description = "Tilltree backend — the operating system for organisations."
+readme = "README.md"
+requires-python = ">=3.14,<3.15"
+dependencies = [
+    "django>=5.2.8,<5.3",                  # 5.2 LTS (security support to April 2028)
+    "djangorestframework>=3.16",
+    "drf-spectacular>=0.28",
+    "django-filter>=25.1",
+    "django-cors-headers>=4.7",
+    "psycopg[binary,pool]>=3.2",
+    "redis>=6.0",
+    "celery[redis]>=5.5",
+    "structlog>=25.1",
+    "argon2-cffi>=23.1",
+    "phonenumbers>=9.0",
+    "tzdata>=2025.2",                      # IANA zones for slim container images
+    "sentry-sdk[django,celery]>=2.30",
+    "gunicorn>=23.0",
+    "uvicorn[standard]>=0.34",
+    "uvicorn-worker>=0.3",
+    "whitenoise>=6.9",
+    "python-dotenv>=1.1",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.4",
+    "pytest-django>=4.11",
+    "pytest-cov>=6.2",
+    "factory-boy>=3.3",
+    "ruff>=0.12",
+    "mypy>=1.16",
+    "django-stubs[compatible-mypy]>=5.2,<5.3",
+    "djangorestframework-stubs[compatible-mypy]>=3.16",
+    "celery-types>=0.23",
+    "import-linter>=2.3",
+]
+
+[tool.uv]
+package = false
+
+# ---------------------------------------------------------------- pytest
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "config.settings.testing"
+testpaths = ["apps", "common", "tests"]
+python_files = ["test_*.py"]
+addopts = "-ra --strict-markers"
+markers = [
+    "security: tenant isolation, authorisation and abuse tests",
+    "integration: tests crossing process or service boundaries",
+    "performance: load and query-count tests",
+]
+
+[tool.coverage.run]
+source = ["apps", "common", "config"]
+omit = ["*/migrations/*", "*/tests/*"]
+
+# ---------------------------------------------------------------- ruff
+[tool.ruff]
+line-length = 100
+target-version = "py314"
+extend-exclude = [".venv"]
+
+[tool.ruff.lint]
+exclude = ["**/migrations/*"]
+select = ["E", "F", "W", "I", "B", "UP", "DJ", "S", "SIM", "RUF", "C4", "DTZ", "T20", "PT", "N"]
+ignore = ["N818"]  # exception names like TenantContextMissing read better without "Error"
+
+[tool.ruff.lint.per-file-ignores]
+"**/tests/**" = ["S101", "S105", "S106", "PT018", "RUF012"]
+"tests/**" = ["S101", "S105", "S106", "PT018", "RUF012"]
+"conftest.py" = ["S101"]
+"config/settings/*.py" = ["F403", "F405"]
+
+# ---------------------------------------------------------------- mypy
+[tool.mypy]
+python_version = "3.14"
+plugins = ["mypy_django_plugin.main", "mypy_drf_plugin.main"]
+disallow_untyped_defs = true
+check_untyped_defs = true
+no_implicit_optional = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+strict_equality = true
+exclude = ["/migrations/", "^\\.venv/"]
+
+[[tool.mypy.overrides]]
+module = ["tests.*", "*.tests.*", "conftest"]
+disallow_untyped_defs = false
+
+[[tool.mypy.overrides]]
+module = ["phonenumbers.*"]
+ignore_missing_imports = true
+
+[tool.django-stubs]
+django_settings_module = "config.settings.testing"
+
+# ---------------------------------------------------------------- import-linter
+# Domain boundary rules (docs/architecture/02-project-structure.md §3).
+[tool.importlinter]
+root_packages = ["common", "apps", "config"]
+
+[[tool.importlinter.contracts]]
+name = "common is framework-level: it must not depend on domain apps or config"
+type = "forbidden"
+source_modules = ["common"]
+forbidden_modules = ["apps", "config"]
+
+[[tool.importlinter.contracts]]
+name = "Domain apps must not depend on config"
+type = "forbidden"
+source_modules = ["apps"]
+forbidden_modules = ["config"]
+
+[[tool.importlinter.contracts]]
+name = "Foundation layering: organisations may use identity, never the reverse"
+type = "layers"
+layers = ["apps.organisations", "apps.identity"]
