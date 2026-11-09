@@ -166,7 +166,13 @@ def test_no_tenant_model_is_registered_in_django_admin():
     assert registered == []
 
 
-UNSCOPED_ALLOWLIST: set[str] = set()  # e.g. {"apps/audit/exporter.py"} once justified
+# Each entry needs a reason. Unscoped reads still pass through row-level security.
+UNSCOPED_ALLOWLIST: dict[str, str] = {
+    "apps/access/selectors.py": (
+        "my_memberships / my_support_grants list the caller's own rows across organisations "
+        "under user_context; the bridge RLS policy limits rows to that user."
+    ),
+}
 
 
 def test_unscoped_manager_is_used_only_in_allowlisted_modules():

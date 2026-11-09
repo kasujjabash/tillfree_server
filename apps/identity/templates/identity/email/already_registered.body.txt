@@ -1,0 +1,10 @@
+{% autoescape off %}Hello {{ user.get_short_name }},
+
+Someone tried to create a {{ product_name }} account with this email address, but you already have one.
+
+If this was you, sign in here: {{ url }}
+If you forgot your password, use "Forgot password" on the sign-in page.
+
+If this was not you, you can ignore this email.
+
+— The {{ product_name }} team{% endautoescape %}

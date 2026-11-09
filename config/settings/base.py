@@ -4,9 +4,12 @@
 what differs. All configuration comes from environment variables (see .env.example).
 """
 
+import base64
+import hashlib
 from pathlib import Path
 from typing import Any
 
+from django.core.exceptions import ImproperlyConfigured
 from django.utils.translation import gettext_lazy as _
 from dotenv import load_dotenv
 
@@ -40,8 +43,10 @@ INSTALLED_APPS = [
     # Framework-level code (no models)
     "common",
     # Domains
+    "apps.audit",
     "apps.identity",
     "apps.organisations",
+    "apps.access",
 ]
 
 MIDDLEWARE = [
@@ -149,6 +154,53 @@ AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
 ]
 
+# Tokens (docs/architecture/adr/0004-authentication-tokens.md)
+ACCESS_TOKEN_LIFETIME_SECONDS = env_int("ACCESS_TOKEN_LIFETIME_SECONDS", 10 * 60)
+REFRESH_TOKEN_SLIDING_SECONDS = env_int("REFRESH_TOKEN_SLIDING_SECONDS", 30 * 24 * 3600)
+REFRESH_TOKEN_ABSOLUTE_SECONDS = env_int("REFRESH_TOKEN_ABSOLUTE_SECONDS", 90 * 24 * 3600)
+JWT_ISSUER = "tillfree"
+JWT_AUDIENCE = "tillfree-api"
+
+
+def parse_signing_keys(raw: str) -> dict[str, str]:
+    """``JWT_SIGNING_KEYS="kid1:secret1,kid2:secret2"``; the first key signs, all verify."""
+    keys: dict[str, str] = {}
+    for item in filter(None, (part.strip() for part in raw.split(","))):
+        kid, _sep, secret = item.partition(":")
+        if not kid or len(secret) < 32:
+            raise ImproperlyConfigured(
+                "Each JWT signing key must be kid:secret, secret >= 32 chars."
+            )
+        keys[kid] = secret
+    return keys
+
+
+def derived_secret(secret_key: str, purpose: str) -> bytes:
+    """Development/test convenience only. Production sets explicit keys."""
+    return hashlib.sha256(f"{purpose}:{secret_key}".encode()).digest()
+
+
+JWT_SIGNING_KEYS = parse_signing_keys(env_str("JWT_SIGNING_KEYS", ""))
+JWT_ACTIVE_KEY_ID = next(iter(JWT_SIGNING_KEYS), "")
+# Fernet keys (urlsafe base64, 32 bytes) for secrets at rest; first encrypts, all decrypt.
+FIELD_ENCRYPTION_KEYS = env_list("FIELD_ENCRYPTION_KEYS", "")
+
+REFRESH_COOKIE_NAME = "tf_refresh"
+REFRESH_COOKIE_PATH = "/api/v1/auth/"
+REFRESH_COOKIE_SECURE = env_bool("REFRESH_COOKIE_SECURE", True)
+
+# ------------------------------------------------------------------ email
+PRODUCT_NAME = "Tillfree"
+FRONTEND_URL = env_str("FRONTEND_URL", "http://localhost:5173")
+EMAIL_BACKEND = env_str("EMAIL_BACKEND", "django.core.mail.backends.smtp.EmailBackend")
+EMAIL_HOST = env_str("EMAIL_HOST", "localhost")
+EMAIL_PORT = env_int("EMAIL_PORT", 25)
+EMAIL_HOST_USER = env_str("EMAIL_HOST_USER", "")
+EMAIL_HOST_PASSWORD = env_str("EMAIL_HOST_PASSWORD", "")
+EMAIL_USE_TLS = env_bool("EMAIL_USE_TLS", False)
+EMAIL_TIMEOUT = 10
+DEFAULT_FROM_EMAIL = env_str("DEFAULT_FROM_EMAIL", "Tillfree <no-reply@localhost>")
+
 # ------------------------------------------------------------------ i18n / time
 # Timestamps are stored in UTC. Business dates use the branch/organisation
 # timezone (docs/architecture/06-localisation.md §5), never this setting.
@@ -169,8 +221,7 @@ STORAGES: dict[str, dict[str, Any]] = {
 
 # ------------------------------------------------------------------ API
 REST_FRAMEWORK: dict[str, Any] = {
-    # Token authentication arrives in Phase 2; until then every endpoint denies by default.
-    "DEFAULT_AUTHENTICATION_CLASSES": [],
+    "DEFAULT_AUTHENTICATION_CLASSES": ["apps.identity.authentication.AccessTokenAuthentication"],
     "DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.IsAuthenticated"],
     "DEFAULT_RENDERER_CLASSES": ["rest_framework.renderers.JSONRenderer"],
     "DEFAULT_PARSER_CLASSES": ["rest_framework.parsers.JSONParser"],
@@ -187,12 +238,22 @@ REST_FRAMEWORK: dict[str, Any] = {
     "DEFAULT_THROTTLE_RATES": {
         "anon": env_str("THROTTLE_ANON_RATE", "60/min"),
         "user": env_str("THROTTLE_USER_RATE", "600/min"),
+        # Per-IP (or per-user when signed in) limits on sensitive endpoints.
+        "auth_login": env_str("THROTTLE_AUTH_LOGIN_RATE", "10/min"),
+        "auth_mfa": env_str("THROTTLE_AUTH_MFA_RATE", "10/min"),
+        "auth_register": env_str("THROTTLE_AUTH_REGISTER_RATE", "10/hour"),
+        "auth_email": env_str("THROTTLE_AUTH_EMAIL_RATE", "10/hour"),
+        "auth_token": env_str("THROTTLE_AUTH_TOKEN_RATE", "30/hour"),
+        "auth_refresh": env_str("THROTTLE_AUTH_REFRESH_RATE", "60/min"),
+        "auth_sensitive": env_str("THROTTLE_AUTH_SENSITIVE_RATE", "10/hour"),
+        "organisation_create": env_str("THROTTLE_ORGANISATION_CREATE_RATE", "10/day"),
+        "me": env_str("THROTTLE_ME_RATE", "120/min"),
     },
     # Proxies in front of the app. DRF throttling takes the client IP from X-Forwarded-For
     # this many hops from the right; unset (None) trusts the whole client-supplied header.
     "NUM_PROXIES": env_int("DRF_NUM_PROXIES", 0),
     "EXCEPTION_HANDLER": "common.api.handlers.problem_exception_handler",
-    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+    "DEFAULT_SCHEMA_CLASS": "apps.access.api.schema.TenantAwareAutoSchema",
     "UNAUTHENTICATED_USER": "django.contrib.auth.models.AnonymousUser",
 }
 
@@ -202,6 +263,12 @@ SPECTACULAR_SETTINGS = {
     "VERSION": "1.0.0",
     "SERVE_INCLUDE_SCHEMA": False,
     "COMPONENT_SPLIT_REQUEST": True,
+    "ENUM_NAME_OVERRIDES": {
+        "OrganisationStatusEnum": "apps.organisations.models.Organisation.Status",
+        "MembershipStatusEnum": "apps.access.models.Membership.Status",
+        "InvitationStatusEnum": "apps.access.models.Invitation.Status",
+        "SupportGrantStatusEnum": "apps.access.models.SupportAccessGrant.Status",
+    },
 }
 
 API_DOCS_ENABLED = env_bool("API_DOCS_ENABLED", False)
@@ -266,3 +333,10 @@ if SENTRY_DSN:
         release=env_str("APP_RELEASE", "") or None,
         traces_sample_rate=env_float("SENTRY_TRACES_SAMPLE_RATE", 0.0),
     )
+
+
+def fill_dev_keys(secret_key: str) -> tuple[dict[str, str], list[str]]:
+    """Signing/encryption keys derived from SECRET_KEY, for development and tests only."""
+    jwt_keys = {"dev": base64.urlsafe_b64encode(derived_secret(secret_key, "jwt")).decode()}
+    fernet = [base64.urlsafe_b64encode(derived_secret(secret_key, "field-encryption")).decode()]
+    return jwt_keys, fernet

@@ -3,17 +3,19 @@
 Design: docs/architecture/05-identity-and-access.md §1.
 """
 
+from datetime import datetime
 from typing import Any, ClassVar
 
 from django.contrib.auth.base_user import AbstractBaseUser, BaseUserManager
 from django.contrib.auth.models import PermissionsMixin
+from django.contrib.postgres.fields import ArrayField
 from django.db import models
 from django.db.models.functions import Lower
+from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 from common.db.models import TimeStampedModel, UUIDPrimaryKeyModel
-
-from .validators import validate_e164_phone, validate_timezone
+from common.validators import validate_e164_phone, validate_timezone
 
 
 class UserManager(BaseUserManager["User"]):
@@ -124,3 +126,130 @@ class User(UUIDPrimaryKeyModel, TimeStampedModel, AbstractBaseUser, PermissionsM
 
     def get_short_name(self) -> str:
         return self.preferred_name or self.full_name or self.email
+
+    @property
+    def email_verified(self) -> bool:
+        return self.email_verified_at is not None
+
+    @property
+    def mfa_enabled(self) -> bool:
+        device = TOTPDevice.objects.filter(user=self, confirmed_at__isnull=False).first()
+        return device is not None
+
+
+class AuthSession(UUIDPrimaryKeyModel, TimeStampedModel):
+    """One signed-in device. Access tokens name the session; revoking it ends them.
+
+    See docs/architecture/adr/0004-authentication-tokens.md.
+    """
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="auth_sessions")
+    device_label = models.CharField(max_length=100, blank=True)
+    user_agent = models.CharField(max_length=300, blank=True)
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    # Authentication methods used: "pwd", "otp" (RFC 8176 values).
+    amr = ArrayField(models.CharField(max_length=10), default=list)
+    auth_time = models.DateTimeField()
+    last_used_at = models.DateTimeField()
+    expires_at = models.DateTimeField(help_text="Sliding expiry, extended on each refresh.")
+    absolute_expires_at = models.DateTimeField(help_text="Hard limit; re-login required.")
+    revoked_at = models.DateTimeField(null=True, blank=True)
+    revoked_reason = models.CharField(max_length=40, blank=True)
+
+    class Meta:
+        db_table = "identity_authsession"
+        indexes: ClassVar[list[models.Index]] = [
+            models.Index(fields=["user", "revoked_at"], name="identity_session_user_idx"),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.user_id} {self.device_label or self.user_agent[:40]}"
+
+    def is_usable(self, now: datetime | None = None) -> bool:
+        """Can still authenticate requests (access tokens)."""
+        now = now or timezone.now()
+        return self.revoked_at is None and now < self.absolute_expires_at
+
+    def is_refreshable(self, now: datetime | None = None) -> bool:
+        now = now or timezone.now()
+        return self.is_usable(now) and now < self.expires_at
+
+
+class RefreshToken(UUIDPrimaryKeyModel):
+    """Each refresh rotates the token. Presenting a rotated token again means it was
+    copied, so the whole session is revoked (reuse detection)."""
+
+    session = models.ForeignKey(
+        AuthSession, on_delete=models.CASCADE, related_name="refresh_tokens"
+    )
+    token_hash = models.CharField(max_length=64, unique=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    rotated_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        db_table = "identity_refreshtoken"
+
+    def __str__(self) -> str:
+        return f"refresh token for session {self.session_id}"
+
+
+class OneTimeToken(UUIDPrimaryKeyModel):
+    """Single-use secrets sent by email or returned mid-login. Only the hash is stored."""
+
+    class Purpose(models.TextChoices):
+        EMAIL_VERIFICATION = "email_verification", "Email verification"
+        EMAIL_CHANGE = "email_change", "Email change"
+        PASSWORD_RESET = "password_reset", "Password reset"
+        MFA_CHALLENGE = "mfa_challenge", "MFA challenge"
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="one_time_tokens")
+    purpose = models.CharField(max_length=30, choices=Purpose.choices)
+    token_hash = models.CharField(max_length=64, unique=True)
+    data = models.JSONField(default=dict, blank=True)
+    expires_at = models.DateTimeField()
+    used_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "identity_onetimetoken"
+        indexes: ClassVar[list[models.Index]] = [
+            models.Index(fields=["user", "purpose", "used_at"], name="identity_ott_user_idx"),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.purpose} for {self.user_id}"
+
+    def is_valid(self, now: datetime | None = None) -> bool:
+        return self.used_at is None and (now or timezone.now()) < self.expires_at
+
+
+class TOTPDevice(UUIDPrimaryKeyModel, TimeStampedModel):
+    """Authenticator-app secret, encrypted at rest (apps/identity/crypto.py)."""
+
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="totp_device")
+    encrypted_secret = models.TextField()
+    confirmed_at = models.DateTimeField(null=True, blank=True)
+    # Highest time step accepted so far; a code can never be used twice.
+    last_used_step = models.BigIntegerField(null=True, blank=True)
+
+    class Meta:
+        db_table = "identity_totpdevice"
+
+    def __str__(self) -> str:
+        return f"TOTP for {self.user_id}"
+
+
+class RecoveryCode(UUIDPrimaryKeyModel):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="recovery_codes")
+    code_hash = models.CharField(max_length=64)
+    used_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "identity_recoverycode"
+        constraints: ClassVar[list[models.BaseConstraint]] = [
+            models.UniqueConstraint(fields=["user", "code_hash"], name="identity_recovery_unique"),
+        ]
+
+    def __str__(self) -> str:
+        return f"recovery code for {self.user_id}"

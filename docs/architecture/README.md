@@ -1,6 +1,6 @@
 # Tillfree — Backend Architecture
 
-Status: **Approved 2026-11-09. Phase 1 (foundation) implemented**; Phases 2–5 pending. See the [roadmap](10-roadmap-and-risks.md).
+Status: **Approved 2026-11-09. Phase 1 (foundation) and Phase 2 (identity, organisations, access, audit) implemented**; Phases 3–5 pending. See the [roadmap](10-roadmap-and-risks.md).
 
 | # | Document | Covers |
 |---|----------|--------|

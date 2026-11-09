@@ -5,7 +5,7 @@ One platform. Every operation. Room to grow.
 
 A multi-tenant Django modular monolith serving organisations across industries and countries. Architecture, decisions and roadmap: [docs/architecture](docs/architecture/README.md).
 
-**Status:** Phase 1 (foundation) complete — project structure, settings, tenancy machinery with PostgreSQL row-level security, custom user model, error contract, logging, health checks, Celery, Docker, CI. Phase 2 (authentication, organisations, roles) is next.
+**Status:** Phases 1–2 complete. Foundation (tenancy with PostgreSQL row-level security, error contract, logging, health, Celery, Docker, CI) plus identity and access: sign-up, sign-in with two-step verification, sessions, password and email recovery, organisations, branches, departments, members, invitations, roles with branch scope, support access and an append-only audit log. Phase 3 (countries, subscriptions, notifications, documents) is next.
 
 ## Stack
 
@@ -20,10 +20,12 @@ common/         framework-level code, no domain logic:
   api/            problem+json errors, cursor pagination
   observability/  structured logging, redaction, request IDs, Sentry scrubbing
   db/ health/     UUIDv7 base models; liveness/readiness endpoints
-apps/           business domains
-  identity/       custom User (email login, E.164 phone, Argon2id)
-  organisations/  Organisation (tenant root)
-tests/          cross-cutting suites: security/ (tenant isolation), api/; tenancy_app/ is a test-only tenant model
+apps/           business domains, each: api/ -> services -> models, plus public.py
+  audit/          append-only audit log
+  identity/       users, sessions, tokens, two-step verification, sign-in/up API
+  organisations/  organisation, settings, branches, departments
+  access/         memberships, invitations, roles, permissions, authorize(), tenant API base, support access
+tests/          cross-cutting suites: security/ (tenant isolation, cross-tenant API), architecture/, api/
 infrastructure/ db/create_roles.sql, docker/ (gunicorn config, postgres init)
 docs/           architecture and ADRs
 ```
@@ -62,10 +64,29 @@ make lint        # ruff lint + format check
 make typecheck   # mypy (django-stubs, drf-stubs)
 make imports     # import-linter domain-boundary contracts
 make check       # fails if a model change has no migration
+make schema      # OpenAPI schema must generate without warnings
 make ci          # all of the above
 ```
 
 CI (`.github/workflows/ci.yml`) runs the same checks against PostgreSQL 17 with the production role model, audits dependencies with pip-audit and builds the production image.
+
+## Using the API
+
+Interactive docs at http://localhost:8000/api/docs/ (development). Typical flow:
+
+```bash
+# sign up, then open the verification link printed in the server console
+curl -X POST localhost:8000/api/v1/auth/register/ -H 'Content-Type: application/json' \
+     -d '{"email":"me@example.com","password":"a-long-passphrase-9","full_name":"Me"}'
+curl -X POST localhost:8000/api/v1/auth/login/ -H 'Content-Type: application/json' \
+     -d '{"email":"me@example.com","password":"a-long-passphrase-9"}'          # -> access_token
+curl -X POST localhost:8000/api/v1/organisations/ -H "Authorization: Bearer $TOKEN" \
+     -H 'Content-Type: application/json' \
+     -d '{"name":"My Clinic","country_code":"UG","base_currency":"UGX","default_timezone":"Africa/Kampala"}'
+curl localhost:8000/api/v1/branches/ -H "Authorization: Bearer $TOKEN" -H "X-Organisation-ID: $ORG_ID"
+```
+
+Full endpoint list and client guidance: [docs/architecture/08-api.md](docs/architecture/08-api.md#9-implemented-endpoints-phase-2). Platform staff are created in the Django admin (`/admin/`, "Platform staff").
 
 ## Conventions that matter from day one
 
@@ -73,12 +94,13 @@ CI (`.github/workflows/ci.yml`) runs the same checks against PostgreSQL 17 with 
 - **Never register tenant models in Django admin.** Admin bypasses tenant enforcement; a test enforces this.
 - **Errors:** raise `common.exceptions.BusinessRuleViolation` (or a subclass) from services; the API returns RFC 9457 `application/problem+json`.
 - **Time:** store UTC; compute business dates in the branch or organisation timezone, never the server's.
-- **Boundaries:** `common` never imports `apps` or `config`; `apps` never import `config`. Checked by `make imports`.
+- **Boundaries:** a domain uses another only through its `public.py`; dependencies point down (access → organisations → identity → audit); inside a domain `api → services → models`. Checked by `make imports` and `tests/architecture/`.
+- **Permissions:** declare them in your app's `permissions.py`; every tenant view action must name the permission it needs in `required_permissions` (a test fails otherwise).
 
 ## Production deployment notes
 
 - Image: `docker build --target production .` (non-root, Gunicorn + `uvicorn-worker`, static files via WhiteNoise).
 - Run migrations as a one-off job with the owner role (`DB_USER=tillfree_owner`, `DB_STATEMENT_TIMEOUT_MS=0`), then roll out the API and workers with `DB_USER=tillfree_app`.
 - After migrating, run `python manage.py check --deploy --database default` as the app role. It fails if the role can bypass row-level security or if any tenant table lacks RLS.
-- Required settings: `DJANGO_SECRET_KEY` (≥ 50 random chars), `DJANGO_ALLOWED_HOSTS`, database, `REDIS_CACHE_URL`, `CELERY_BROKER_URL`. See `.env.example`.
+- Required settings: `DJANGO_SECRET_KEY` (≥ 50 random chars), `JWT_SIGNING_KEYS`, `FIELD_ENCRYPTION_KEYS`, `DJANGO_ALLOWED_HOSTS`, database, `REDIS_CACHE_URL`, `CELERY_BROKER_URL`, SMTP settings, `FRONTEND_URL`. See `.env.example`.
 - Probes: liveness `GET /health/live/`, readiness `GET /health/ready/` (database and cache).

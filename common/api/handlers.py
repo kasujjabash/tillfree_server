@@ -4,10 +4,13 @@ from typing import Any
 
 import structlog
 from django.core.exceptions import PermissionDenied as DjangoPermissionDenied
+from django.core.exceptions import ValidationError as DjangoValidationError
+from django.db.models import ProtectedError, RestrictedError
 from django.http import Http404
 from django.utils.translation import gettext_lazy as _
 from rest_framework import exceptions, status
 from rest_framework.response import Response
+from rest_framework.serializers import as_serializer_error
 from rest_framework.settings import api_settings
 from rest_framework.views import set_rollback
 
@@ -72,6 +75,7 @@ def problem_exception_handler(exc: Exception, context: dict[str, Any]) -> Respon
             if exc.field
             else None
         )
+        retry_after = getattr(exc, "retry_after", None)
         return _response(
             problem_body(
                 status=exc.status_code,
@@ -80,10 +84,24 @@ def problem_exception_handler(exc: Exception, context: dict[str, Any]) -> Respon
                 detail=None if errors else exc.message,
                 errors=errors,
                 request_id=request_id,
+            ),
+            {"Retry-After": str(int(retry_after))} if retry_after else None,
+        )
+
+    if isinstance(exc, ProtectedError | RestrictedError):
+        return _response(
+            problem_body(
+                status=status.HTTP_409_CONFLICT,
+                code="resource_in_use",
+                title=_("The resource is still in use and cannot be deleted."),
+                request_id=request_id,
             )
         )
 
-    if isinstance(exc, Http404):
+    if isinstance(exc, DjangoValidationError):
+        # Model/service validation (full_clean, password validators) uses the same shape.
+        exc = exceptions.ValidationError(detail=as_serializer_error(exc))
+    elif isinstance(exc, Http404):
         exc = exceptions.NotFound()
     elif isinstance(exc, DjangoPermissionDenied):
         exc = exceptions.PermissionDenied()

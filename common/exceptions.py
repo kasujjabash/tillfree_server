@@ -36,3 +36,21 @@ class ConflictError(DomainError):
     status_code = 409
     default_code = "conflict"
     title = _("The request conflicts with the current state of the resource.")
+
+
+class PermissionDeniedError(DomainError):
+    status_code = 403
+    default_code = "permission_denied"
+    title = _("You do not have permission to perform this action.")
+
+
+class RateLimitedError(DomainError):
+    status_code = 429
+    default_code = "rate_limited"
+    title = _("Too many attempts. Try again later.")
+
+    def __init__(
+        self, message: str | Promise, *, retry_after: int, code: str | None = None
+    ) -> None:
+        super().__init__(message, code=code)
+        self.retry_after = retry_after

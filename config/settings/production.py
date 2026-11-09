@@ -11,6 +11,11 @@ if len(SECRET_KEY) < 50 or SECRET_KEY.startswith(("dev-", "testing-")):
         "DJANGO_SECRET_KEY must be a random value of at least 50 characters."
     )
 
+if not JWT_SIGNING_KEYS:
+    raise ImproperlyConfigured("JWT_SIGNING_KEYS must be set in production (kid:secret,...).")
+if not FIELD_ENCRYPTION_KEYS:
+    raise ImproperlyConfigured("FIELD_ENCRYPTION_KEYS must be set in production (Fernet keys).")
+
 ALLOWED_HOSTS = env_list("DJANGO_ALLOWED_HOSTS", "")
 if not ALLOWED_HOSTS:
     raise ImproperlyConfigured("DJANGO_ALLOWED_HOSTS must be set in production.")

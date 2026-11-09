@@ -3,10 +3,20 @@ from django.contrib import admin
 from django.urls import URLPattern, URLResolver, include, path
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
+from apps.access.api import urls as access_urls
+from apps.audit.api import urls as audit_urls
+from apps.identity.api import urls as identity_urls
+from apps.organisations.api import urls as organisation_urls
 from common.health import views as health
 
-# Domain routes are added here phase by phase (docs/architecture/08-api.md §1).
-api_v1: list[URLPattern | URLResolver] = []
+# Domain routes (docs/architecture/08-api.md §1).
+api_v1: list[URLPattern | URLResolver] = [
+    path("auth/", include(identity_urls.auth_urlpatterns)),
+    path("me/", include(identity_urls.me_urlpatterns)),
+    path("", include(organisation_urls.urlpatterns)),
+    path("", include(access_urls.urlpatterns)),
+    path("", include(audit_urls.urlpatterns)),
+]
 
 urlpatterns: list[URLPattern | URLResolver] = [
     path("health/live/", health.live, name="health-live"),

@@ -94,3 +94,38 @@ Redis-backed DRF throttles, layered: anonymous per IP, authenticated per user, p
 - Input and output serializers are separate where they differ. Models are never exposed as-is; field lists are explicit.
 - Nested serializers only one level deep on list endpoints; related details fetched by ID or via an `?expand=` allowlist later if needed.
 - The OpenAPI schema is generated in CI and diffed; a breaking change in v1 fails the build.
+
+## 9. Implemented endpoints (Phase 2)
+
+The interactive reference, generated from code, is at `/api/docs/` (Swagger UI) and `/api/schema/` (OpenAPI 3). Every tenant endpoint lists the `X-Organisation-ID` header and its exact permission. Summary:
+
+| Endpoint | Auth | Purpose |
+|----------|------|---------|
+| `POST /auth/register/`, `/auth/verify-email/`, `/auth/verify-email/resend/` | public | Sign up; confirm email via emailed link |
+| `POST /auth/login/` | public | Password sign-in. Returns tokens, or `{mfa_required, mfa_token}` |
+| `POST /auth/mfa/verify/` | public | Second step: `mfa_token` + authenticator `code` or `recovery_code` |
+| `POST /auth/token/refresh/` | refresh token | Rotate tokens (body token or `tf_refresh` cookie) |
+| `POST /auth/logout/`, `/auth/logout-all/` | access token | End this session / every session |
+| `POST /auth/password/forgot/`, `/auth/password/reset/`, `/auth/password/change/` | public / public / access | Password recovery and change |
+| `POST /auth/email/change/`, `/auth/email/confirm/` | access / public | Change sign-in email (confirmed from the new inbox) |
+| `POST /auth/mfa/totp/setup/`, `confirm/`, `disable/`, `/auth/mfa/recovery-codes/` | access | Manage two-step verification |
+| `GET/PATCH /me/`, `GET /me/sessions/`, `DELETE /me/sessions/{id}/` | access | Profile and signed-in devices |
+| `GET /me/memberships/` | access | Organisations I belong to (pick one, then send its id as `X-Organisation-ID`) |
+| `POST /organisations/` | access, verified email | Create an organisation; creator becomes Owner |
+| `GET /me/access/` | tenant | My permissions and branch grants here: drives which menus/buttons the UI shows |
+| `GET/PATCH /organisations/current/`, `/organisations/current/settings/` | tenant | Profile; security settings (e.g. require two-step verification) |
+| `/branches/`, `/departments/` | tenant | Structure; branch-scoped roles see only their branches |
+| `/memberships/` (+ `suspend/`, `reactivate/`, `leave/`) | tenant | Team management |
+| `/roles/`, `/role-assignments/`, `GET /role-templates/`, `GET /permissions/` | tenant / access | Custom roles and who holds what, where |
+| `/invitations/` (+ `resend/`, `revoke/`), `POST /invitations/preview/`, `accept/`, `accept-new/` | tenant / public / access | Invite by email; invitee joins with or without an existing account |
+| `/support-grants/` (+ `approve/`, `deny/`, `revoke/`) | tenant | Organisation decides on platform support access |
+| `GET /audit-events/` | tenant (`audit.event.view`) | The organisation's audit log |
+| `GET /platform/organisations/`, `GET/POST /platform/support-grants/` | platform staff + two-step | Platform operations |
+
+### Typical client flow
+
+1. `POST /auth/login/` → keep `access_token` in memory; mobile keeps `refresh_token` in the secure keystore, web passes `use_cookie: true`.
+2. On `401 token_expired`, call `POST /auth/token/refresh/` once and retry. On any other 401, send the user to sign-in.
+3. `GET /me/memberships/` → user picks an organisation → send `X-Organisation-ID` on every tenant call.
+4. `GET /me/access/` → show only what the user may do. The server still checks every request.
+5. `403 mfa_required` → ask the user to set up two-step verification and sign in again.

@@ -1,0 +1,7 @@
+{% autoescape off %}Hello {{ user.get_short_name }},
+
+The email address on your account was changed, and all devices were signed out. You will no longer receive emails at this address.
+
+If this was not you, contact support and reset your password: {{ url }}
+
+— The {{ product_name }} team{% endautoescape %}

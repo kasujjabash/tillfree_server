@@ -51,8 +51,8 @@ Only directories marked ✅ are created in Phase 1–3. Everything else is creat
 | Domain | Owns | Does not own |
 |--------|------|--------------|
 | identity | User, password/credential lifecycle, email/phone verification, auth sessions + refresh tokens, MFA devices, login throttling state | Anything about organisations or roles |
-| organisations | Organisation, OrganisationSettings, Branch, Department, Membership, Invitation, organisation lifecycle (create, suspend, close) | Role definitions, permission evaluation |
-| access | Permission registry (code-declared), Role, RolePermission, RoleAssignment (membership × role × optional branch), `authorize()`, PlatformStaff, SupportAccessGrant | Who is a member (asks `organisations`) |
+| organisations | Organisation, OrganisationSettings, Branch, Department, organisation lifecycle (create, suspend, close) | Who belongs to it, permission evaluation |
+| access | Permission and role-template registry (code-declared), Membership, Invitation, custom Role, RoleAssignment (membership × role × optional branch), `authorize()`, the tenant API base view, PlatformStaff, SupportAccessGrant, organisation onboarding | User accounts and sessions (asks `identity`) |
 | localisation | Country, Currency, Language, CountryConfiguration, tax reference tables, formatting helpers | Organisation-specific choices (stored in OrganisationSettings) |
 | subscriptions | Module and Feature catalogue, Plan, PlanEntitlement, Subscription, EntitlementOverride, usage counters, billing records for platform fees | Tenant's own invoicing to their customers (that is `shared/billing`) |
 | audit | AuditEvent writing, querying, retention | Deciding what is auditable (each domain emits its own events) |
@@ -76,6 +76,19 @@ flowchart TB
 3. Dependencies point down the diagram only. Peer domains on the same level do not import each other; they communicate through events.
 4. `healthcare` and `business` never import each other.
 5. Rules 1, 3 and 4 are enforced in CI with **import-linter** contracts in `pyproject.toml`, so they do not depend on code review.
+
+### Enforced in CI
+
+| Rule | Checked by |
+|------|------------|
+| A domain imports another domain only via its `public.py` | `tests/architecture/test_boundaries.py` (parses every import) |
+| Domains depend downwards only: access → organisations → identity → audit | import-linter layers contract |
+| Inside a domain: `api` → `services` → `models`, never upwards | import-linter layers contract (per domain) |
+| The HTTP layer never writes to the database itself | `tests/architecture/test_boundaries.py` |
+| `common` never imports `apps` or `config` | import-linter forbidden contract |
+| Every tenant endpoint action declares its permission | `tests/security/test_cross_tenant_api.py` |
+
+Phase 2 moved memberships and invitations from `organisations` to `access`. They are access decisions, and keeping them in `organisations` would have required `organisations` to depend on `access` (a cycle).
 
 ## 4. Cross-domain communication
 

@@ -38,9 +38,6 @@ erDiagram
     MEMBERSHIP ||--o{ ROLE_ASSIGNMENT : has
     ROLE ||--o{ ROLE_ASSIGNMENT : "assigned through"
     BRANCH |o--o{ ROLE_ASSIGNMENT : "scopes (null = all)"
-    ROLE ||--o{ ROLE_PERMISSION : grants
-    PERMISSION ||--o{ ROLE_PERMISSION : "granted by"
-    MODULE ||--o{ PERMISSION : declares
 
     PLAN ||--o{ PLAN_ENTITLEMENT : includes
     MODULE ||--o{ PLAN_ENTITLEMENT : "enabled by"
@@ -127,12 +124,6 @@ erDiagram
         jsonb proposed_roles
         timestamptz expires_at
         timestamptz accepted_at
-    }
-    PERMISSION {
-        string code PK "module.resource.action"
-        string module_code FK
-        string sensitivity "standard|sensitive|clinical"
-        string description
     }
     ROLE {
         uuid id PK
@@ -288,15 +279,24 @@ Not shown: `OUTBOX_EVENT` (events app), `IDEMPOTENCY_RECORD` (common API), `USAG
 | User, AuthSession, MFADevice, VerificationToken | User-owned | — | No | Accessed by identity services only |
 | PlatformStaff | Platform | — | No | Writable only by super admins; changes audited |
 | Country, Currency, Language, CountryConfiguration, TaxRate | Global reference | — | No | Cached; versioned |
-| Module, Permission, Plan, PlanEntitlement | Global reference | — | No | Permissions synced from code at deploy |
+| Module, Plan, PlanEntitlement | Global reference | — | No | Phase 3 |
 | Organisation | Tenant root | = `id` | No | Users must see the names of organisations they belong to before choosing one, so access is by membership check. It holds only name, slug, status and defaults; sensitive organisation data lives in RLS tables. |
 | OrganisationSettings, Branch, Department, Role (tenant), RoleAssignment, Subscription, EntitlementOverride, FileObject, Notification, NotificationDelivery, SupportAccessGrant | Tenant | required | Yes | |
 | Role with `organisation_id = null` | Platform template | — | Policy allows null | System role templates, read-only to tenants |
 | NotificationTemplate | Mixed | nullable | Yes, `org = ctx OR org IS NULL` | Tenant overrides fall back to platform default |
-| Membership, Invitation | Bridge | required | Yes, `org = ctx OR user = current user` | |
+| Membership | Bridge | required | Yes, read: `org = ctx OR user_id = app.user_id`; write: `org = ctx` | Lets users list their own organisations |
+| SupportAccessGrant | Bridge | required | Yes, read: `org = ctx OR staff_user_id = app.user_id`; write: `org = ctx` | Staff list their own grants |
+| Role, RoleAssignment, Invitation, OrganisationSettings, Branch, Department | Tenant | required | Yes (`tenant_isolation`) | |
 | AuditEvent | Tenant (nullable for platform) | nullable | Yes | Append-only: `tillfree_app` has `INSERT, SELECT` only. Monthly partitions. |
 | OutboxEvent | Tenant | nullable | Yes | Relay reads with platform alias |
 | IdempotencyRecord | Tenant | required | Yes | Expires after 24h |
+
+### Phase 2 implementation notes
+
+- **Permissions are not a table.** They are declared in each app's `permissions.py` and collected at startup (`apps/access/registry.py`). Built-in role templates (Owner, Administrator, Manager, Staff, and module templates later) also live in code. Only organisation-defined custom roles are rows (`access_role.permissions` is an array of codes). A permission removed from code is ignored, never granted.
+- `RoleAssignment` and `Invitation` reference either a template key or a custom role; a check constraint enforces exactly one.
+- `AuditEvent` read policy: the organisation's events, plus a user's own account events (no organisation) under `user_context`. No UPDATE or DELETE policy exists, so the log is append-only even for the table owner.
+- Identity tables (`identity_authsession`, `identity_refreshtoken`, `identity_onetimetoken`, `identity_totpdevice`, `identity_recoverycode`) are user-owned and never accessed through an organisation context. Tokens are stored only as SHA-256 hashes; TOTP secrets are encrypted with Fernet (`FIELD_ENCRYPTION_KEYS`).
 
 ## 3. Conventions
 

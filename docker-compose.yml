@@ -5,6 +5,7 @@
 # api       Django dev server as tillfree_app (no DDL, subject to row-level security)
 # worker    Celery worker            beat  Celery scheduler (exactly one)
 # redis     cache (db 0) and broker (db 1); production uses two separate instances
+# mailpit   development mail catcher (web inbox on :8025)
 
 x-app: &app
   build:
@@ -23,6 +24,9 @@ x-app: &app
 
 x-app-env: &app-env
   DJANGO_SETTINGS_MODULE: config.settings.development
+  EMAIL_BACKEND: django.core.mail.backends.smtp.EmailBackend
+  EMAIL_HOST: mailpit
+  EMAIL_PORT: "1025"
   DB_HOST: postgres
   DB_NAME: tillfree
   REDIS_CACHE_URL: redis://redis:6379/0
@@ -47,6 +51,11 @@ services:
       interval: 3s
       timeout: 3s
       retries: 20
+
+  mailpit:  # catches every outgoing email; inbox at http://localhost:8025
+    image: axllent/mailpit:v1.21
+    ports:
+      - "8025:8025"
 
   redis:
     image: redis:7-alpine

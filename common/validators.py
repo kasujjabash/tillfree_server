@@ -1,9 +1,15 @@
+"""Field validators shared by several domains."""
+
+import re
 from functools import cache
 from zoneinfo import available_timezones
 
 import phonenumbers
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
+
+_COUNTRY = re.compile(r"^[A-Z]{2}$")
+_CURRENCY = re.compile(r"^[A-Z]{3}$")
 
 
 def validate_e164_phone(value: str) -> None:
@@ -28,4 +34,20 @@ def validate_timezone(value: str) -> None:
     if value not in _timezones():
         raise ValidationError(
             _("Enter a valid IANA timezone, e.g. Africa/Kampala."), code="invalid_timezone"
+        )
+
+
+def validate_country_code(value: str) -> None:
+    """ISO 3166-1 alpha-2. Checked against the country reference table in Phase 3."""
+    if not _COUNTRY.match(value):
+        raise ValidationError(
+            _("Enter a two-letter ISO country code, e.g. UG."), code="invalid_country"
+        )
+
+
+def validate_currency_code(value: str) -> None:
+    """ISO 4217. Checked against the currency reference table in Phase 3."""
+    if not _CURRENCY.match(value):
+        raise ValidationError(
+            _("Enter a three-letter ISO currency code, e.g. UGX."), code="invalid_currency"
         )

@@ -1,4 +1,4 @@
-.PHONY: install db-roles migrate run worker test lint format typecheck imports check ci up down
+.PHONY: install db-roles migrate run worker test lint format typecheck imports check schema ci up down
 
 UV ?= uv
 DB_SUPERUSER ?= $(USER)
@@ -41,7 +41,10 @@ imports:            ## Domain-boundary contracts
 check:              ## Pending-migration check
 	DJANGO_SETTINGS_MODULE=config.settings.testing $(UV) run python manage.py makemigrations --check --dry-run
 
-ci: lint typecheck imports check test
+schema:             ## OpenAPI schema must generate without warnings
+	DJANGO_SETTINGS_MODULE=config.settings.testing $(UV) run python manage.py spectacular --validate --fail-on-warn --file /dev/null
+
+ci: lint typecheck imports check schema test
 
 up:
 	docker compose up --build

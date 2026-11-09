@@ -4,6 +4,10 @@ from .base import *
 
 DEBUG = False
 SECRET_KEY = "testing-only-secret-key-" + "x" * 40
+JWT_SIGNING_KEYS, FIELD_ENCRYPTION_KEYS = fill_dev_keys(SECRET_KEY)
+JWT_ACTIVE_KEY_ID = "dev"
+EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
+FRONTEND_URL = "https://app.test"
 ALLOWED_HOSTS = ["testserver", "localhost"]
 APP_ENVIRONMENT = "testing"
 

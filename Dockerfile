@@ -33,6 +33,8 @@ COPY --chown=app:app . .
 # the production settings checks; no database is touched.
 RUN DJANGO_SETTINGS_MODULE=config.settings.production \
     DJANGO_SECRET_KEY="$(python -c 'import secrets; print(secrets.token_urlsafe(64))')" \
+    JWT_SIGNING_KEYS="build:$(python -c 'import secrets; print(secrets.token_urlsafe(48))')" \
+    FIELD_ENCRYPTION_KEYS="$(python -c 'from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())')" \
     DJANGO_ALLOWED_HOSTS=build.invalid \
     python manage.py collectstatic --noinput -v0
 USER app

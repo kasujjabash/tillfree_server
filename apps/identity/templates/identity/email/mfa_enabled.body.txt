@@ -1,0 +1,7 @@
+{% autoescape off %}Hello {{ user.get_short_name }},
+
+Two-step verification was turned on for your account. Keep your recovery codes somewhere safe.
+
+If this was not you, reset your password and contact support.
+
+— The {{ product_name }} team{% endautoescape %}

@@ -9,6 +9,7 @@ Organisations need roles that fit their structure; industry modules bring their 
 ## Decision
 - Permissions are strings `module.resource.action`, declared in each module's code with a sensitivity class (`standard`, `sensitive`, `clinical`) and synced to a table at deploy time.
 - Roles are data owned by an organisation; the platform and modules ship read-only templates that organisations can copy.
+- Implementation (Phase 2): permissions and templates are not stored in tables at all. The registry in `apps/access/registry.py` collects them from code at startup. Owner = every non-clinical permission; Administrator = every standard permission.
 - A role assignment is `(membership, role, branch | null)`.
 - One `authorize()` function decides, combining permission, module entitlement, branch scope and optional object policies. Views declare required permissions per action; a test fails if a view action has none.
 - Owner/Admin templates exclude clinical permissions; grants are limited to permissions the granter holds.

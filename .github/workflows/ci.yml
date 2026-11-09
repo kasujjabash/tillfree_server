@@ -50,6 +50,8 @@ jobs:
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1
           -v db_name=tillfree -v owner_password=tillfree_owner_ci -v app_password=tillfree_app_ci
           -f infrastructure/db/create_roles.sql
+      - name: OpenAPI schema generates without warnings
+        run: DJANGO_SETTINGS_MODULE=config.settings.testing uv run python manage.py spectacular --validate --fail-on-warn --file /dev/null
       - name: No missing migrations
         run: DJANGO_SETTINGS_MODULE=config.settings.testing uv run python manage.py makemigrations --check --dry-run
       - run: uv run pytest --cov --cov-report=term-missing --cov-fail-under=85

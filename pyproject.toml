@@ -23,6 +23,9 @@ dependencies = [
     "uvicorn-worker>=0.3",
     "whitenoise>=6.9",
     "python-dotenv>=1.1",
+    "pyjwt>=2.10",
+    "pyotp>=2.9",
+    "cryptography>=44",
 ]
 
 [dependency-groups]
@@ -70,10 +73,11 @@ select = ["E", "F", "W", "I", "B", "UP", "DJ", "S", "SIM", "RUF", "C4", "DTZ", "
 ignore = ["N818"]  # exception names like TenantContextMissing read better without "Error"
 
 [tool.ruff.lint.per-file-ignores]
-"**/tests/**" = ["S101", "S105", "S106", "PT018", "RUF012"]
-"tests/**" = ["S101", "S105", "S106", "PT018", "RUF012"]
+"**/tests/**" = ["S101", "S105", "S106", "PT018", "RUF012", "E501"]
+"tests/**" = ["S101", "S105", "S106", "PT018", "RUF012", "E501"]
 "conftest.py" = ["S101"]
 "config/settings/*.py" = ["F403", "F405"]
+"**/api/serializers.py" = ["RUF012"]  # DRF Meta options are conventional mutable attrs
 
 # ---------------------------------------------------------------- mypy
 [tool.mypy]
@@ -116,6 +120,17 @@ source_modules = ["apps"]
 forbidden_modules = ["config"]
 
 [[tool.importlinter.contracts]]
-name = "Foundation layering: organisations may use identity, never the reverse"
+name = "Domain layering: access -> organisations -> identity -> audit (never upwards)"
 type = "layers"
-layers = ["apps.organisations", "apps.identity"]
+layers = ["apps.access", "apps.organisations", "apps.identity", "apps.audit"]
+# HTTP layers of lower domains use the tenant view base classes from access.
+ignore_imports = [
+    "apps.organisations.api.views -> apps.access.public",
+    "apps.audit.api.views -> apps.access.public",
+]
+
+[[tool.importlinter.contracts]]
+name = "Inside each domain: api -> services -> models (never upwards)"
+type = "layers"
+layers = ["(api)", "(services)", "(models)"]
+containers = ["apps.identity", "apps.organisations", "apps.access", "apps.audit"]

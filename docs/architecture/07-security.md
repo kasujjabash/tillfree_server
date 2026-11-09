@@ -42,6 +42,14 @@ Malware scanning (e.g. ClamAV in a worker container) is an open decision on cost
 - Field-level encryption (envelope encryption with a KMS key) only for a small set of high-risk fields (e.g. national ID numbers, specific diagnoses) once identified with clinical and legal advisers. It makes those fields unsearchable, so it is applied deliberately, not everywhere.
 - Designed with the Uganda Data Protection and Privacy Act 2019 in mind (health data is special personal data; registration with the Personal Data Protection Office; data subject rights; breach notification; restrictions on processing outside Uganda). **Hosting location is therefore a legal question as well as a technical one** — see open decisions. A legal review is required before handling real patient data.
 
+## 4a. Decisions made while implementing Phase 2
+
+- **Rate limits fail closed.** Throttle and brute-force counters live in Redis. If Redis is unreachable, throttled endpoints return 500 rather than silently dropping brute-force protection; the readiness probe reports the instance unavailable so the load balancer stops routing to it.
+- **Emails never break a committed request.** They are queued after commit with `robust=True`; a broker outage is logged and alerted, and the user's action still succeeds.
+- **Tracebacks in logs never include local variables** (structlog's default would), so secrets in a crashing function cannot reach log storage.
+- **Owners cannot lock everyone out:** enabling "require two-step verification" for an organisation is refused unless the person enabling it is signed in with two-step verification.
+- **Account enumeration is avoided** on registration, resend-verification, forgot-password and email-change: responses are identical whether or not the address exists; only the inbox learns the difference.
+
 ## 5. Threat model
 
 STRIDE-style, prioritised. "L" = likelihood, "I" = impact (H/M/L).

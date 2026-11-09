@@ -1,0 +1,11 @@
+{% autoescape off %}Hello,
+
+{{ inviter_name }} invited you to join {{ organisation_name }} on {{ product_name }} as {{ role_name }}.
+
+Accept the invitation here (valid for {{ days }} days):
+
+{{ url }}
+
+If you were not expecting this, you can ignore this email.
+
+— The {{ product_name }} team{% endautoescape %}

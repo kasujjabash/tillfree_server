@@ -1,0 +1,9 @@
+{% autoescape off %}Hello {{ user.get_short_name }},
+
+Open this link to make this your sign-in email address (valid for 24 hours):
+
+{{ url }}
+
+If you did not ask for this, ignore this email.
+
+— The {{ product_name }} team{% endautoescape %}

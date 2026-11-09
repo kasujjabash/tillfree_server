@@ -1,0 +1,1 @@
+{% autoescape off %}{% if break_glass %}Emergency support access opened{% else %}Support access requested{% endif %} for {{ organisation.name }}{% endautoescape %}

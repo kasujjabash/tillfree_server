@@ -26,3 +26,8 @@ class TenantManager(models.Manager[_M]):
                 f"{self.model.__name__} is tenant-scoped; use tenant_context() first."
             )
         return super().get_queryset().filter(organisation_id=organisation_id)
+
+    def none(self) -> models.QuerySet[_M]:
+        """An empty queryset, available without a tenant context (e.g. for API schema
+        introspection). It can never return rows, so it cannot leak any."""
+        return super().get_queryset().none()

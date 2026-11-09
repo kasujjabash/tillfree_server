@@ -1,0 +1,1 @@
+{% autoescape off %}You're invited to join {{ organisation_name }} on {{ product_name }}{% endautoescape %}

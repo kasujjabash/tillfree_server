@@ -10,9 +10,11 @@ Each phase ends with its exit criteria met, tests passing in CI, and documentati
 **Deferred:** `RequestContext` and the tenant base view move to Phase 2, where memberships exist to build them from.
 **Exit:** `docker compose up` gives a running API with `/health/ready/` green; the test suite proves RLS fails closed on a sample tenant table and that tenant context does not survive connection reuse; CI green.
 
-### Phase 2 — Identity, organisations, access, audit
+### Phase 2 — Identity, organisations, access, audit ✅ implemented 2026-11-09
 **Builds:** registration, email verification, login/refresh/logout, sessions list/revoke, password reset, TOTP MFA, throttling; organisations, settings, branches, departments, memberships, invitations; permissions registry, role templates, custom roles, branch-scoped assignments, `authorize()`; platform staff + support-access grants; audit log.
 **Exit:** cross-tenant, IDOR, privilege-escalation, branch-restriction and token (expired/revoked/reused) security suites pass; OpenAPI documents permissions per endpoint.
+**Delivered:** everything listed, plus email change, time-boxed owner-approved support access, and the architecture checks in CI. 222 tests (security suites for cross-tenant access, IDOR, privilege escalation, branch scope, token reuse/expiry/revocation, brute force), 91% coverage, OpenAPI schema with zero warnings.
+**Decided while building:** sensitive role grants are audited and emailed to all Owners (no second approver); web clients keep the refresh token in an HttpOnly cookie, mobile clients in the body; rate limits fail closed when Redis is down (the readiness probe then takes the instance out of rotation).
 
 ### Phase 3 — Platform services
 **Builds:** localisation reference data and country configuration (seeded for UG, KE, TZ, RW as a start); `Money`; modules, plans, subscriptions, entitlements, usage limits (entitlement enforcement in `authorize()`); notifications (email adapter, one SMS adapter, in-app, templates, preferences, retries); documents (presigned upload/download, scan status); transactional outbox.
@@ -24,6 +26,7 @@ Each phase ends with its exit criteria met, tests passing in CI, and documentati
 
 ### Phase 5 — Industry experiences
 **Business:** products/services, sales/POS, invoicing, expenses, financial reports — on top of shared inventory, customers and billing. The current pharmacy retail behaviour (prescription-only items, FEFO, public catalogue) becomes a configuration of this module.
+**Healthcare finance** (requested 2026-11-09): consultation, lab and procedure fees, pharmacy sales, patient bills and payments, insurance claims, daily cash-up and owner revenue reports, all built on the shared billing and finance domain (Phase 4) rather than separately. Owners and administrators see financial and operational figures by default, not clinical details.
 **Healthcare:** only after a clinical advisory process: patient registration and consent, appointments, care-team assignment, then encounters, lab and pharmacy. Clinical workflows are specified and signed off by qualified healthcare professionals before they are built.
 
 ## 2. Requirements challenged
@@ -60,6 +63,6 @@ Each phase ends with its exit criteria met, tests passing in CI, and documentati
 2. **Launch vertical and timeline.** Is pharmacy/retail POS (what the original MVP did) the first experience to ship? If so, Phase 4–5 business work can be pulled forward right after Phase 2.
 3. **Hosting and data residency.** Which country/provider will host production data? Is legal advice available on the DPPA?
 4. **Clients.** Which clients are planned (web app, Android POS, iOS)? Do any need to work offline?
-5. **Sensitive role grants.** Should granting a role with `sensitive`/`clinical` permissions need a second Owner's approval, or is audit + notification enough?
+5. ~~**Sensitive role grants.**~~ Resolved: audit + email to all Owners. A second-approver step can be added later without changing the model.
 6. **Domain name** for public API documentation and error `type` URIs (currently `urn:tillfree:problem:<code>`). Product name resolved: **Tillfree**.
 7. **Malware scanning** of uploads: run ClamAV ourselves, use a provider service, or restrict file types for now?

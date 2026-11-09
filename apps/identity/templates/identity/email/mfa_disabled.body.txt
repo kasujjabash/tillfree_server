@@ -1,0 +1,7 @@
+{% autoescape off %}Hello {{ user.get_short_name }},
+
+Two-step verification was turned off for your account, and other devices were signed out.
+
+If this was not you, reset your password immediately and contact support.
+
+— The {{ product_name }} team{% endautoescape %}

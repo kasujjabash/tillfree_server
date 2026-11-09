@@ -1,0 +1,9 @@
+{% autoescape off %}Hello {{ user.get_short_name }},
+
+Please confirm your email address by opening this link (valid for 48 hours):
+
+{{ url }}
+
+If you did not create an account, you can ignore this email.
+
+— The {{ product_name }} team{% endautoescape %}
