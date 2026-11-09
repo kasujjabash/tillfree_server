@@ -103,8 +103,8 @@ def database_config(*, pool: bool) -> dict[str, Any]:
         }
     return {
         "ENGINE": "django.db.backends.postgresql",
-        "NAME": env_str("DB_NAME", "tilltree"),
-        "USER": env_str("DB_USER", "tilltree_owner"),
+        "NAME": env_str("DB_NAME", "tillfree"),
+        "USER": env_str("DB_USER", "tillfree_owner"),
         "PASSWORD": env_str("DB_PASSWORD", ""),
         "HOST": env_str("DB_HOST", "localhost"),
         "PORT": env_str("DB_PORT", "5432"),
@@ -197,7 +197,7 @@ REST_FRAMEWORK: dict[str, Any] = {
 }
 
 SPECTACULAR_SETTINGS = {
-    "TITLE": "Tilltree API",
+    "TITLE": "Tillfree API",
     "DESCRIPTION": "The Operating System for Organisations.",
     "VERSION": "1.0.0",
     "SERVE_INCLUDE_SCHEMA": False,
@@ -206,7 +206,7 @@ SPECTACULAR_SETTINGS = {
 
 API_DOCS_ENABLED = env_bool("API_DOCS_ENABLED", False)
 # RFC 9457 "type" URIs. A URN until a public documentation domain exists.
-API_PROBLEM_TYPE_BASE = env_str("API_PROBLEM_TYPE_BASE", "urn:tilltree:problem:")
+API_PROBLEM_TYPE_BASE = env_str("API_PROBLEM_TYPE_BASE", "urn:tillfree:problem:")
 ADMIN_URL = env_str("DJANGO_ADMIN_URL", "admin/")
 
 # ------------------------------------------------------------------ CORS / security

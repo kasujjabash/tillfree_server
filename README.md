@@ -1,4 +1,4 @@
-# Tilltree — backend
+# Tillfree — backend
 
 **The Operating System for Organisations.**
 One platform. Every operation. Room to grow.
@@ -35,7 +35,7 @@ Requires Python 3.14, [uv](https://docs.astral.sh/uv/) and a local PostgreSQL 17
 ```bash
 uv sync                                   # create .venv with all dependencies
 cp .env.example .env
-make db-roles                             # creates database `tilltree`, roles tilltree_owner / tilltree_app
+make db-roles                             # creates database `tillfree`, roles tillfree_owner / tillfree_app
 make migrate
 uv run python manage.py createsuperuser   # platform staff account for /admin/
 make run                                  # http://localhost:8000/health/ready/  ·  /api/docs/
@@ -43,7 +43,7 @@ make run                                  # http://localhost:8000/health/ready/ 
 
 `make db-roles` uses your OS user as the PostgreSQL superuser; override with `make db-roles DB_SUPERUSER=postgres`.
 
-Locally the app connects as `tilltree_owner` for simplicity. That role is not a superuser and every tenant table uses `FORCE ROW LEVEL SECURITY`, so isolation is still enforced. In Docker and production the app connects as `tilltree_app`, which cannot change the schema.
+Locally the app connects as `tillfree_owner` for simplicity. That role is not a superuser and every tenant table uses `FORCE ROW LEVEL SECURITY`, so isolation is still enforced. In Docker and production the app connects as `tillfree_app`, which cannot change the schema.
 
 ## Local development with Docker
 
@@ -52,7 +52,7 @@ cp .env.example .env
 docker compose up --build
 ```
 
-Services: `postgres`, `redis`, `migrate` (runs once as `tilltree_owner`), `api` on :8000 (as `tilltree_app`), `worker`, `beat`.
+Services: `postgres`, `redis`, `migrate` (runs once as `tillfree_owner`), `api` on :8000 (as `tillfree_app`), `worker`, `beat`.
 
 ## Quality checks
 
@@ -78,7 +78,7 @@ CI (`.github/workflows/ci.yml`) runs the same checks against PostgreSQL 17 with 
 ## Production deployment notes
 
 - Image: `docker build --target production .` (non-root, Gunicorn + `uvicorn-worker`, static files via WhiteNoise).
-- Run migrations as a one-off job with the owner role (`DB_USER=tilltree_owner`, `DB_STATEMENT_TIMEOUT_MS=0`), then roll out the API and workers with `DB_USER=tilltree_app`.
+- Run migrations as a one-off job with the owner role (`DB_USER=tillfree_owner`, `DB_STATEMENT_TIMEOUT_MS=0`), then roll out the API and workers with `DB_USER=tillfree_app`.
 - After migrating, run `python manage.py check --deploy --database default` as the app role. It fails if the role can bypass row-level security or if any tenant table lacks RLS.
 - Required settings: `DJANGO_SECRET_KEY` (≥ 50 random chars), `DJANGO_ALLOWED_HOSTS`, database, `REDIS_CACHE_URL`, `CELERY_BROKER_URL`. See `.env.example`.
 - Probes: liveness `GET /health/live/`, readiness `GET /health/ready/` (database and cache).

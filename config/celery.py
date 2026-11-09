@@ -4,6 +4,6 @@ from celery import Celery
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings.production")
 
-app = Celery("tilltree")
+app = Celery("tillfree")
 app.config_from_object("django.conf:settings", namespace="CELERY")
 app.autodiscover_tasks()

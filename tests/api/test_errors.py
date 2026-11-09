@@ -61,7 +61,7 @@ def test_validation_errors_are_flattened_with_paths():
     assert response["Content-Type"] == "application/problem+json"
     body = response.data
     assert body["code"] == "validation_error"
-    assert body["type"] == "urn:tilltree:problem:validation_error"
+    assert body["type"] == "urn:tillfree:problem:validation_error"
     fields = {(e["field"], e["code"]) for e in body["errors"]}
     assert ("branch", "invalid") in fields
     assert ("items[0].quantity", "min_value") in fields
@@ -143,4 +143,4 @@ def test_unknown_url_returns_problem_with_request_id(client):
 def test_openapi_schema_is_generated(client):
     response = client.get("/api/schema/", HTTP_ACCEPT="application/json")
     assert response.status_code == 200
-    assert response.json()["info"]["title"] == "Tilltree API"
+    assert response.json()["info"]["title"] == "Tillfree API"

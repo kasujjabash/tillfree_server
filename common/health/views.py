@@ -14,7 +14,7 @@ from django.http import HttpRequest, JsonResponse
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_GET
 
-logger = structlog.get_logger("tilltree.health")
+logger = structlog.get_logger("tillfree.health")
 
 
 def check_database() -> bool:

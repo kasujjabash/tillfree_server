@@ -29,7 +29,7 @@ def check_database_role(
                 Error(
                     f"Database '{alias}' connects as a superuser or BYPASSRLS role, so "
                     "row-level security does not apply.",
-                    hint="Connect the application as tilltree_app (see infrastructure/db).",
+                    hint="Connect the application as tillfree_app (see infrastructure/db).",
                     id="tenancy.E001",
                 )
             )

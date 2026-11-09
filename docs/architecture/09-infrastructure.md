@@ -22,7 +22,7 @@ A note on ASGI: the codebase is written with synchronous views (the ORM and DRF 
 
 ## 2. Local development (Docker Compose)
 
-Services: `postgres` (database and roles created by `infrastructure/db/create_roles.sql`), `redis`, `migrate` (one-off job, runs as `tilltree_owner`), `api` (runserver with reload, runs as `tilltree_app`), `worker`, `beat`. `mailpit` (catches email) is added in Phase 2 and `minio` (object storage) in Phase 3, when something uses them. `Makefile` targets: `install`, `db-roles`, `migrate`, `run`, `test`, `lint`, `typecheck`, `imports`, `check`, `ci`, `up`.
+Services: `postgres` (database and roles created by `infrastructure/db/create_roles.sql`), `redis`, `migrate` (one-off job, runs as `tillfree_owner`), `api` (runserver with reload, runs as `tillfree_app`), `worker`, `beat`. `mailpit` (catches email) is added in Phase 2 and `minio` (object storage) in Phase 3, when something uses them. `Makefile` targets: `install`, `db-roles`, `migrate`, `run`, `test`, `lint`, `typecheck`, `imports`, `check`, `ci`, `up`.
 
 The development database uses the same RLS roles as production, so isolation bugs show up locally. SQLite is no longer supported (it has no RLS and different semantics).
 
@@ -40,7 +40,7 @@ flowchart TB
         API1 & API2 & APIn --> RB[(Managed Redis: broker)]
         W1[Worker containers<br/>scaled per queue] --> PG & RB & RC
         BT[Beat: single replica] --> RB
-        MIG[One-off migration job<br/>runs as tilltree_owner]
+        MIG[One-off migration job<br/>runs as tillfree_owner]
     end
     API1 & W1 --> OS[(Object storage<br/>private bucket, encrypted)]
     W1 --> EXT[Email / SMS / payment APIs]
@@ -53,7 +53,7 @@ The hosting region is an open decision because of data-residency obligations (se
 
 ### Release process
 1. CI builds and scans the image, runs tests.
-2. Migration job runs (as `tilltree_owner`) — migrations must be backwards-compatible with the currently running code.
+2. Migration job runs (as `tillfree_owner`) — migrations must be backwards-compatible with the currently running code.
 3. Rolling deploy of API and workers; readiness check gates traffic.
 4. Rollback = redeploy the previous image. Because migrations are expand-only during a release, the previous image still works. Destructive "contract" migrations ship in a later release.
 

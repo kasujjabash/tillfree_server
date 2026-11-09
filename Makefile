@@ -7,8 +7,8 @@ install:            ## Install all dependencies into .venv
 	$(UV) sync
 
 db-roles:           ## Create local database + roles (needs a PostgreSQL superuser)
-	psql -d postgres -U $(DB_SUPERUSER) -v ON_ERROR_STOP=1 -v db_name=tilltree \
-	  -v owner_password=tilltree_owner_dev -v app_password=tilltree_app_dev \
+	psql -d postgres -U $(DB_SUPERUSER) -v ON_ERROR_STOP=1 -v db_name=tillfree \
+	  -v owner_password=tillfree_owner_dev -v app_password=tillfree_app_dev \
 	  -f infrastructure/db/create_roles.sql
 
 migrate:

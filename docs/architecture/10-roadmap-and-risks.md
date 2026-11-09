@@ -61,5 +61,5 @@ Each phase ends with its exit criteria met, tests passing in CI, and documentati
 3. **Hosting and data residency.** Which country/provider will host production data? Is legal advice available on the DPPA?
 4. **Clients.** Which clients are planned (web app, Android POS, iOS)? Do any need to work offline?
 5. **Sensitive role grants.** Should granting a role with `sensitive`/`clinical` permissions need a second Owner's approval, or is audit + notification enough?
-6. **Domain name** for public API documentation and error `type` URIs (currently `urn:tilltree:problem:<code>`). Product name resolved: **Tilltree**.
+6. **Domain name** for public API documentation and error `type` URIs (currently `urn:tillfree:problem:<code>`). Product name resolved: **Tillfree**.
 7. **Malware scanning** of uploads: run ClamAV ourselves, use a provider service, or restrict file types for now?

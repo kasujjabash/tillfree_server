@@ -45,13 +45,13 @@ Even if application code builds an unscoped query, the database returns only the
 ### Roles
 | DB role | Used by | Properties |
 |---------|---------|------------|
-| `tilltree_owner` | Migrations only | Owns tables. Never used by the running app. |
-| `tilltree_app` | API and workers | `NOSUPERUSER NOBYPASSRLS`. DML on tenant tables. No DDL. No `UPDATE`/`DELETE` on audit tables. |
-| `tilltree_platform` | Allowlisted platform jobs (billing runs, tenant export, retention) | `BYPASSRLS`. Separate Django DB alias (`platform`). Every use audited. |
+| `tillfree_owner` | Migrations only | Owns tables. Never used by the running app. |
+| `tillfree_app` | API and workers | `NOSUPERUSER NOBYPASSRLS`. DML on tenant tables. No DDL. No `UPDATE`/`DELETE` on audit tables. |
+| `tillfree_platform` | Allowlisted platform jobs (billing runs, tenant export, retention) | `BYPASSRLS`. Separate Django DB alias (`platform`). Every use audited. |
 
-Tables use `ALTER TABLE … ENABLE ROW LEVEL SECURITY` **and** `FORCE ROW LEVEL SECURITY`, so policies apply even to the table owner. Because `tilltree_owner` is not a superuser, the test suite (which connects as the owner so it can create the test database) is subject to the same policies as production.
+Tables use `ALTER TABLE … ENABLE ROW LEVEL SECURITY` **and** `FORCE ROW LEVEL SECURITY`, so policies apply even to the table owner. Because `tillfree_owner` is not a superuser, the test suite (which connects as the owner so it can create the test database) is subject to the same policies as production.
 
-Roles are created by `infrastructure/db/create_roles.sql` (local and CI). `tilltree_platform` is added when the first cross-tenant platform job exists (Phase 3).
+Roles are created by `infrastructure/db/create_roles.sql` (local and CI). `tillfree_platform` is added when the first cross-tenant platform job exists (Phase 3).
 
 ### Policy
 ```sql

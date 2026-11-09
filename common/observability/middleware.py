@@ -11,7 +11,7 @@ REQUEST_ID_HEADER = "X-Request-ID"
 # Accept a caller's request ID only if it is safe to log (no spaces, newlines, or huge values).
 _VALID_REQUEST_ID = re.compile(r"^[A-Za-z0-9._-]{8,64}$")
 
-logger = structlog.get_logger("tilltree.request")
+logger = structlog.get_logger("tillfree.request")
 
 
 def get_request_id(request: HttpRequest | None = None) -> str | None:

@@ -35,8 +35,8 @@ jobs:
           --health-interval 5s --health-timeout 5s --health-retries 10
     env:
       DB_HOST: localhost
-      DB_USER: tilltree_owner
-      DB_PASSWORD: tilltree_owner_ci
+      DB_USER: tillfree_owner
+      DB_PASSWORD: tillfree_owner_ci
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
@@ -48,7 +48,7 @@ jobs:
           PGPASSWORD: postgres
         run: >
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1
-          -v db_name=tilltree -v owner_password=tilltree_owner_ci -v app_password=tilltree_app_ci
+          -v db_name=tillfree -v owner_password=tillfree_owner_ci -v app_password=tillfree_app_ci
           -f infrastructure/db/create_roles.sql
       - name: No missing migrations
         run: DJANGO_SETTINGS_MODULE=config.settings.testing uv run python manage.py makemigrations --check --dry-run
@@ -67,4 +67,4 @@ jobs:
     needs: [quality, test]
     steps:
       - uses: actions/checkout@v4
-      - run: docker build --target production --tag tilltree:ci .
+      - run: docker build --target production --tag tillfree:ci .

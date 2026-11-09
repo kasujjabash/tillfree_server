@@ -10,7 +10,7 @@
 | Authorisation | Tenant resolution, tenant managers, `authorize()` with entitlement + branch scope, object policies, RLS ([03](03-multi-tenancy.md)) |
 | Input | DRF serializers with explicit fields (never `fields = "__all__"`), size limits on strings/lists, ORM only (raw SQL requires review and parameterisation), server-generated IDs and timestamps |
 | Output | Dedicated output serializers per audience (e.g. a cost-price field exists only on serializers used with `inventory.cost.view`), sensitive fields omitted not nulled |
-| Data | Encryption at rest (managed disk/DB/bucket encryption), encrypted backups in a separate account, secrets in a secrets manager (never in images or Git), `tilltree_app` DB role with least privilege, audit tables append-only |
+| Data | Encryption at rest (managed disk/DB/bucket encryption), encrypted backups in a separate account, secrets in a secrets manager (never in images or Git), `tillfree_app` DB role with least privilege, audit tables append-only |
 | Outbound | SSRF-safe HTTP client for all integrations/webhooks: HTTPS only, DNS resolution checked against private/link-local/metadata ranges, no redirects to internal ranges, timeouts, response size cap |
 | Supply chain | Locked dependencies (`uv.lock`), `pip-audit` + Dependabot/Renovate in CI, minimal base image, non-root container user, image scanning |
 | Logging | Structured logs with IDs only; a redaction filter drops keys like `password`, `token`, `authorization`, `secret`, `otp`, and any field classified as clinical |

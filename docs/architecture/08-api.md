@@ -49,7 +49,7 @@ JSON only, `snake_case` fields, UUIDs as strings, timestamps ISO 8601 UTC, dates
 
 ```json
 {
-  "type": "urn:tilltree:problem:validation_error",
+  "type": "urn:tillfree:problem:validation_error",
   "title": "Invalid input.",
   "status": 400,
   "code": "validation_error",

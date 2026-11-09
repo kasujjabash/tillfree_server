@@ -16,7 +16,7 @@ from common.observability.middleware import get_request_id
 
 from .problems import PROBLEM_CONTENT_TYPE, problem_body
 
-logger = structlog.get_logger("tilltree.api")
+logger = structlog.get_logger("tillfree.api")
 
 # Codes chosen for the public contract where DRF's default code is less clear.
 _CODE_OVERRIDES: dict[type[exceptions.APIException], str] = {

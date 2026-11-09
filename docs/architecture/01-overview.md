@@ -14,7 +14,7 @@ flowchart LR
 
     LB[Reverse proxy / load balancer<br/>TLS, request size limits, timeouts]
 
-    subgraph App["Tilltree (one codebase, one image)"]
+    subgraph App["Tillfree (one codebase, one image)"]
         API[API processes<br/>Gunicorn + Uvicorn workers<br/>stateless, N replicas]
         WK[Celery workers<br/>queues: default, notifications,<br/>reports, integrations]
         BT[Celery beat<br/>exactly one instance]

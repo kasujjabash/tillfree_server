@@ -1,7 +1,7 @@
 [project]
-name = "tilltree"
+name = "tillfree"
 version = "0.1.0"
-description = "Tilltree backend — the operating system for organisations."
+description = "Tillfree backend — the operating system for organisations."
 readme = "README.md"
 requires-python = ">=3.14,<3.15"
 dependencies = [

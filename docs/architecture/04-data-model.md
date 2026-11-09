@@ -294,7 +294,7 @@ Not shown: `OUTBOX_EVENT` (events app), `IDEMPOTENCY_RECORD` (common API), `USAG
 | Role with `organisation_id = null` | Platform template | — | Policy allows null | System role templates, read-only to tenants |
 | NotificationTemplate | Mixed | nullable | Yes, `org = ctx OR org IS NULL` | Tenant overrides fall back to platform default |
 | Membership, Invitation | Bridge | required | Yes, `org = ctx OR user = current user` | |
-| AuditEvent | Tenant (nullable for platform) | nullable | Yes | Append-only: `tilltree_app` has `INSERT, SELECT` only. Monthly partitions. |
+| AuditEvent | Tenant (nullable for platform) | nullable | Yes | Append-only: `tillfree_app` has `INSERT, SELECT` only. Monthly partitions. |
 | OutboxEvent | Tenant | nullable | Yes | Relay reads with platform alias |
 | IdempotencyRecord | Tenant | required | Yes | Expires after 24h |
 
