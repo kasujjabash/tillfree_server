@@ -2,6 +2,7 @@
 
 from .models import Branch, Department, Organisation, OrganisationSettings
 from .services import (
+    active_branch_count,
     create_organisation_record,
     get_branch,
     get_department,
@@ -16,6 +17,7 @@ __all__ = [
     "Department",
     "Organisation",
     "OrganisationSettings",
+    "active_branch_count",
     "create_organisation_record",
     "get_branch",
     "get_department",

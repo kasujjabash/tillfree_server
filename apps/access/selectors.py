@@ -69,8 +69,28 @@ def active_owner_memberships() -> QuerySet[Membership]:
     ).distinct()
 
 
-def owner_emails() -> list[str]:
-    return list(active_owner_memberships().values_list("user__email", flat=True))
+def owner_users() -> list[User]:
+    return [m.user for m in active_owner_memberships().select_related("user")]
+
+
+def users_holding(code: str) -> list[User]:
+    """Active members who hold ``code`` anywhere (one query for memberships + roles)."""
+    memberships = (
+        Membership.objects.filter(status=Membership.Status.ACTIVE)
+        .select_related("user")
+        .prefetch_related(
+            Prefetch("role_assignments", queryset=RoleAssignment.objects.select_related("role"))
+        )
+    )
+    return [
+        m.user
+        for m in memberships
+        if any(code in assignment_permissions(a) for a in m.role_assignments.all())
+    ]
+
+
+def get_user(user_id: UUID | str | None) -> User | None:
+    return User.objects.filter(pk=user_id).first() if user_id else None
 
 
 def list_roles() -> QuerySet[Role]:

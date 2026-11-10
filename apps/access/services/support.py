@@ -17,10 +17,10 @@ from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 from apps.audit.public import AuditEvent, record
+from apps.events.public import publish
 from apps.identity.public import User
 from apps.organisations.public import get_organisation
 from common.exceptions import ConflictError, NotFoundError, PermissionDeniedError
-from common.mail import queue_email
 from common.tenancy.context import tenant_context
 
 from .. import selectors
@@ -81,16 +81,10 @@ def request_access(
             resource_id=grant.id,
             metadata={"duration_minutes": duration_minutes, "reason": reason},
         )
-        queue_email(
-            to=selectors.owner_emails(),
-            template="access/email/support_access",
-            context={
-                "organisation": organisation,
-                "staff_name": staff_user.get_full_name(),
-                "reason": reason,
-                "duration_minutes": duration_minutes,
-                "break_glass": break_glass,
-            },
+        publish(
+            "access.support_access",
+            organisation_id=organisation.id,
+            payload={"grant_id": str(grant.id)},
         )
     return grant
 

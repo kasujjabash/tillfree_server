@@ -6,6 +6,7 @@ from django.utils.translation import gettext_lazy as _
 
 from apps.identity.public import AuthInfo, User
 from apps.organisations.public import get_organisation, get_settings
+from apps.subscriptions.public import entitlements_for
 from common.exceptions import NotFoundError, PermissionDeniedError
 
 from . import registry, selectors
@@ -36,6 +37,7 @@ def build_access_context(
             user=user,
             organisation=organisation,
             grants=selectors.grants_for(membership),
+            entitlements=entitlements_for(organisation.id),
             amr=amr,
             session_id=session_id,
             require_mfa=settings.require_mfa,
@@ -51,6 +53,7 @@ def build_access_context(
         user=user,
         organisation=supported,
         grants=(Grant(registry.read_only_permissions(), None),),
+        entitlements=entitlements_for(supported.id),
         amr=amr,
         session_id=session_id,
         require_mfa=True,  # support access always needs two-step verification

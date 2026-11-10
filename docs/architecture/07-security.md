@@ -50,6 +50,13 @@ Malware scanning (e.g. ClamAV in a worker container) is an open decision on cost
 - **Owners cannot lock everyone out:** enabling "require two-step verification" for an organisation is refused unless the person enabling it is signed in with two-step verification.
 - **Account enumeration is avoided** on registration, resend-verification, forgot-password and email-change: responses are identical whether or not the address exists; only the inbox learns the difference.
 
+## 4b. Decisions made while implementing Phase 3
+
+- **Files:** allowlist PNG, JPEG, WebP, PDF (no SVG/HTML); size checked when signing and again after upload; real type taken from the first bytes; SHA-256 recorded; malware scan before a file becomes downloadable. Production refuses to start without a scanner (`FILE_SCANNER`) unless `FILES_ALLOW_UNSCANNED=true` is set deliberately. Downloads are 60-second links with `Content-Disposition: attachment`; filenames are sanitised. Support access can see that files exist but never download them.
+- **Notification wording** written by organisations supports `{{ placeholder }}` substitution only, validated against each category's declared variables, so a template cannot read anything it was not given.
+- **SMS** goes only to verified phone numbers and never carries "sensitive" categories (lock screens and shared phones). Delivery errors store the error class only, never provider text that may echo numbers or content.
+- **Modules fail closed:** a permission belonging to a module the organisation is not entitled to is refused, including modules added in future.
+
 ## 5. Threat model
 
 STRIDE-style, prioritised. "L" = likelihood, "I" = impact (H/M/L).

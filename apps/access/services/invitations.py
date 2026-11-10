@@ -15,8 +15,10 @@ from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 from apps.audit.public import record
+from apps.events.public import publish
 from apps.identity.public import ClientInfo, IssuedTokens, User, UserManager, start_session
 from apps.organisations.public import Branch
+from apps.subscriptions.public import ensure_within_limit, entitlements_for
 from common.exceptions import BusinessRuleViolation, ConflictError, PermissionDeniedError
 from common.mail import frontend_url, queue_email
 from common.tenancy.context import tenant_context, user_context
@@ -96,6 +98,7 @@ def create_invitation(
             code="invitation_pending",
             field="email",
         )
+    ensure_within_limit(ctx.entitlements, "max_members", current=seats_in_use())
     raw, token_hash = _new_token(ctx.organisation_id)
     invitation = Invitation.objects.create(
         email=email,
@@ -153,6 +156,15 @@ def revoke_invitation(ctx: AccessContext, invitation: Invitation) -> Invitation:
     return invitation
 
 
+def seats_in_use() -> int:
+    """Active members plus pending invitations (each pending invitation holds a seat)."""
+    active = Membership.objects.filter(status=Membership.Status.ACTIVE).count()
+    pending = Invitation.objects.filter(
+        status=Invitation.Status.PENDING, expires_at__gt=timezone.now()
+    ).count()
+    return active + pending
+
+
 def _pending(raw: str) -> Invitation:
     """Look up a usable invitation. Must run inside the invitation's tenant context."""
     invitation = (
@@ -199,6 +211,9 @@ def _accept(invitation: Invitation, user: User) -> Membership:
             _("Your membership is suspended. Ask an administrator to reactivate it."),
             code="membership_suspended",
         )
+    # The invitation already holds a seat; re-check in case the plan was lowered since.
+    active = Membership.objects.filter(status=Membership.Status.ACTIVE).count()
+    ensure_within_limit(entitlements_for(invitation.organisation_id), "max_members", current=active)
     now = timezone.now()
     if membership is None:
         membership = Membership.objects.create(user=user, joined_at=now)
@@ -221,6 +236,11 @@ def _accept(invitation: Invitation, user: User) -> Membership:
     if user.email_verified_at is None:  # the emailed token proves the inbox
         user.email_verified_at = now
         user.save(update_fields=["email_verified_at", "updated_at"])
+    publish(
+        "access.member_joined",
+        organisation_id=invitation.organisation_id,
+        payload={"membership_id": str(membership.id)},
+    )
     record(
         "invitation.accepted",
         organisation_id=invitation.organisation_id,

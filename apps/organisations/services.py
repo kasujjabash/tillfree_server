@@ -14,6 +14,7 @@ from django.utils.text import slugify
 from django.utils.translation import gettext_lazy as _
 
 from apps.audit.public import record
+from apps.localisation.public import ensure_country_enabled, ensure_currency_active
 from common.exceptions import BusinessRuleViolation
 
 from .models import Branch, Department, Organisation, OrganisationSettings
@@ -56,12 +57,21 @@ def create_organisation_record(
     *,
     name: str,
     country_code: str,
-    base_currency: str,
-    default_timezone: str,
-    default_locale: str = "en",
+    base_currency: str = "",
+    default_timezone: str = "",
+    default_locale: str = "",
     legal_name: str = "",
 ) -> Organisation:
-    """Create the tenant root. Call ``initialise_organisation`` inside its tenant context."""
+    """Create the tenant root. Call ``initialise_organisation`` inside its tenant context.
+
+    The country must be enabled on the platform. Currency, timezone and language default
+    to the country's defaults; nothing is assumed about any particular country.
+    """
+    country = ensure_country_enabled(country_code)
+    base_currency = base_currency or country.default_currency_id
+    ensure_currency_active(base_currency)
+    default_timezone = default_timezone or country.default_timezone
+    default_locale = default_locale or (country.languages[0] if country.languages else "en")
     organisation = Organisation(
         name=name,
         legal_name=legal_name,
@@ -139,6 +149,7 @@ def create_branch(organisation: Organisation, data: dict[str, Any], *, actor_id:
     values = {f: data[f] for f in BRANCH_EDITABLE if f in data}
     values.setdefault("country_code", organisation.country_code)
     values.setdefault("timezone", organisation.default_timezone)
+    ensure_country_enabled(values["country_code"])
     branch = Branch(organisation=organisation, **values)
     branch.full_clean()
     branch.save()
@@ -155,6 +166,8 @@ def create_branch(organisation: Organisation, data: dict[str, Any], *, actor_id:
 @transaction.atomic
 def update_branch(branch: Branch, changes: dict[str, Any], *, actor_id: UUID) -> Branch:
     changed = _apply(branch, changes, BRANCH_EDITABLE)
+    if "country_code" in changed:
+        ensure_country_enabled(branch.country_code)
     if changed:
         branch.full_clean()
         branch.save()
@@ -175,6 +188,10 @@ def list_branches(*, branch_ids: set[UUID] | None = None) -> Any:
     if branch_ids is not None:
         branches = branches.filter(id__in=branch_ids)
     return branches
+
+
+def active_branch_count() -> int:
+    return Branch.objects.filter(is_active=True).count()
 
 
 def get_branch(branch_id: UUID | str) -> Branch | None:

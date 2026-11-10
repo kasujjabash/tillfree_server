@@ -1,6 +1,6 @@
 # Tillfree — Backend Architecture
 
-Status: **Approved 2026-11-09. Phase 1 (foundation) and Phase 2 (identity, organisations, access, audit) implemented**; Phases 3–5 pending. See the [roadmap](10-roadmap-and-risks.md).
+Status: **Phases 1–3 implemented** (foundation; identity, organisations, access, audit; localisation, subscriptions, events, notifications, documents). Phases 4–5 pending. See the [roadmap](10-roadmap-and-risks.md).
 
 | # | Document | Covers |
 |---|----------|--------|
@@ -14,7 +14,7 @@ Status: **Approved 2026-11-09. Phase 1 (foundation) and Phase 2 (identity, organ
 | 08 | [API conventions](08-api.md) | Versioning, response and error formats, pagination, idempotency |
 | 09 | [Infrastructure and operations](09-infrastructure.md) | Deployment, performance, caching, background jobs, observability, backups, CI/CD |
 | 10 | [Roadmap, risks and open decisions](10-roadmap-and-risks.md) | Phases with exit criteria, risks, challenged requirements, questions for the product owner |
-| — | [Architecture decision records](adr/) | One file per significant decision |
+| — | [Architecture decision records](adr/) | One file per significant decision (ADR-0007: outbox) |
 
 ## Decisions at a glance
 

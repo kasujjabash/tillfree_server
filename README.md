@@ -5,7 +5,7 @@ One platform. Every operation. Room to grow.
 
 A multi-tenant Django modular monolith serving organisations across industries and countries. Architecture, decisions and roadmap: [docs/architecture](docs/architecture/README.md).
 
-**Status:** Phases 1–2 complete. Foundation (tenancy with PostgreSQL row-level security, error contract, logging, health, Celery, Docker, CI) plus identity and access: sign-up, sign-in with two-step verification, sessions, password and email recovery, organisations, branches, departments, members, invitations, roles with branch scope, support access and an append-only audit log. Phase 3 (countries, subscriptions, notifications, documents) is next.
+**Status:** Phases 1–3 complete: foundation; identity and access (sign-in with two-step verification, organisations, roles with branch scope, invitations, support access, audit log); platform services (countries and currencies for UG/KE/TZ/RW, money handling, plans and limits, events, in-app/email/SMS notifications, secure file uploads). Phase 4 (shared operations: customers, inventory, billing and finance) is next.
 
 ## Stack
 
@@ -25,6 +25,11 @@ apps/           business domains, each: api/ -> services -> models, plus public.
   identity/       users, sessions, tokens, two-step verification, sign-in/up API
   organisations/  organisation, settings, branches, departments
   access/         memberships, invitations, roles, permissions, authorize(), tenant API base, support access
+  localisation/   countries, currencies, tax rates, formatting
+  subscriptions/  modules, plans, limits, subscriptions, platform invoices
+  events/         transactional outbox and event handlers
+  notifications/  in-app inbox, email and SMS delivery, preferences, templates
+  documents/      secure uploads to S3-compatible storage, scanning, downloads
 tests/          cross-cutting suites: security/ (tenant isolation, cross-tenant API), architecture/, api/
 infrastructure/ db/create_roles.sql, docker/ (gunicorn config, postgres init)
 docs/           architecture and ADRs
@@ -102,5 +107,6 @@ Full endpoint list and client guidance: [docs/architecture/08-api.md](docs/archi
 - Image: `docker build --target production .` (non-root, Gunicorn + `uvicorn-worker`, static files via WhiteNoise).
 - Run migrations as a one-off job with the owner role (`DB_USER=tillfree_owner`, `DB_STATEMENT_TIMEOUT_MS=0`), then roll out the API and workers with `DB_USER=tillfree_app`.
 - After migrating, run `python manage.py check --deploy --database default` as the app role. It fails if the role can bypass row-level security or if any tenant table lacks RLS.
-- Required settings: `DJANGO_SECRET_KEY` (≥ 50 random chars), `JWT_SIGNING_KEYS`, `FIELD_ENCRYPTION_KEYS`, `DJANGO_ALLOWED_HOSTS`, database, `REDIS_CACHE_URL`, `CELERY_BROKER_URL`, SMTP settings, `FRONTEND_URL`. See `.env.example`.
+- Required settings: `DJANGO_SECRET_KEY` (≥ 50 random chars), `JWT_SIGNING_KEYS`, `FIELD_ENCRYPTION_KEYS`, `DJANGO_ALLOWED_HOSTS`, database, `REDIS_CACHE_URL`, `CELERY_BROKER_URL`, SMTP settings, `FRONTEND_URL`, S3 storage (`S3_*`), a malware scanner (`FILE_SCANNER`, `CLAMD_*`), and the SMS gateway if SMS is used. See `.env.example`.
+- Run a Celery beat process (exactly one) for the outbox relay, subscription renewals and upload clean-up.
 - Probes: liveness `GET /health/live/`, readiness `GET /health/ready/` (database and cache).

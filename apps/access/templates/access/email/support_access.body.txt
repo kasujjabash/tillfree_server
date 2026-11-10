@@ -1,9 +1,0 @@
-{% autoescape off %}Hello,
-
-{% if break_glass %}{{ staff_name }} from {{ product_name }} support opened emergency read-only access to {{ organisation.name }} for {{ duration_minutes }} minutes.{% else %}{{ staff_name }} from {{ product_name }} support asked for read-only access to {{ organisation.name }} for {{ duration_minutes }} minutes. Nothing is visible to them until someone in your organisation approves it.{% endif %}
-
-Reason given: {{ reason }}
-
-You can review, approve or revoke support access in your organisation's security settings. Support access never includes sensitive or clinical data, and every request is recorded in your audit log.
-
-— The {{ product_name }} team{% endautoescape %}

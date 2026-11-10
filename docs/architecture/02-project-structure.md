@@ -82,13 +82,23 @@ flowchart TB
 | Rule | Checked by |
 |------|------------|
 | A domain imports another domain only via its `public.py` | `tests/architecture/test_boundaries.py` (parses every import) |
-| Domains depend downwards only: access → organisations → identity → audit | import-linter layers contract |
+| Domains depend downwards only: access → (subscriptions, notifications, documents) → organisations → (localisation, identity) → (events, audit); siblings never import each other | import-linter layers contract |
 | Inside a domain: `api` → `services` → `models`, never upwards | import-linter layers contract (per domain) |
 | The HTTP layer never writes to the database itself | `tests/architecture/test_boundaries.py` |
 | `common` never imports `apps` or `config` | import-linter forbidden contract |
 | Every tenant endpoint action declares its permission | `tests/security/test_cross_tenant_api.py` |
 
 Phase 2 moved memberships and invitations from `organisations` to `access`. They are access decisions, and keeping them in `organisations` would have required `organisations` to depend on `access` (a cycle).
+
+### Phase 3 domains
+
+| Domain | Owns |
+|--------|------|
+| localisation | Countries, currencies, country configuration (formats, financial year, payment/SMS providers, fiscal-invoicing system), tax rates with validity dates, formatting for documents and messages. Seeded for UG, KE, TZ, RW. |
+| subscriptions | Modules, plans, per-currency prices, plan entitlements, subscriptions (trial → active → past due → cancelled), platform overrides, billing records (invoices for platform fees). `Entitlements` is part of every request's `AccessContext`. |
+| events | Transactional outbox and handler registry ([ADR-0007](adr/0007-outbox-without-row-level-security.md)). |
+| notifications | Notification categories (declared in each domain's `notifications.py`), in-app inbox, email and SMS deliveries with retries, preferences, organisation-specific wording (placeholders only). |
+| documents | File metadata, presigned uploads/downloads to private S3-compatible storage, content sniffing, malware scanning, storage quota. |
 
 ## 4. Cross-domain communication
 

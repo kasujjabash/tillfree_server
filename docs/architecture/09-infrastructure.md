@@ -107,6 +107,16 @@ Tenant keys are produced only by `tenant_cache_key()`. Authenticated responses a
   - `/health/live/` — process is up; no dependency checks (used for restarts).
   - `/health/ready/` — DB and Redis reachable, migrations applied; returns only `ok`/`unavailable` (details logged, not exposed). Used by the load balancer.
 
+## 8a. Scheduled jobs and external services (Phase 3)
+
+| Job (Celery beat) | Every | Purpose |
+|-------------------|-------|---------|
+| `relay_outbox` | 30 s | Backstop for event delivery (normally immediate after commit) |
+| `renew_due_subscriptions` | 6 h | One task per organisation: trial → active, new periods, invoices, past-due |
+| `purge_stale_uploads` | 24 h | Remove uploads that were started but never completed |
+
+External services: S3-compatible object storage (bucket private, CORS allowing the web app's origin for presigned POSTs), ClamAV daemon (`clamd`) for scanning, SMTP, and Africa's Talking for SMS. Local development needs none of them: files are kept in memory, scanning is skipped, email prints to the console and SMS is recorded in memory.
+
 ## 9. Backups and recovery
 
 | Item | Proposal |

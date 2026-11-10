@@ -24,12 +24,19 @@ ROLE_TEMPLATES = [
             "organisations.department.view",
             "access.membership.view",
             "access.role.view",
+            "documents.file.upload",
+            "documents.file.view",
+            "subscriptions.subscription.view",
         ),
     ),
     RoleTemplateDef(
         key="staff",
         name="Staff member",
         description="Basic access for team members.",
-        permissions=("organisations.branch.view", "organisations.department.view"),
+        permissions=(
+            "organisations.branch.view",
+            "organisations.department.view",
+            "documents.file.upload",
+        ),
     ),
 ]

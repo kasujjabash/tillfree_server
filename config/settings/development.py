@@ -34,3 +34,9 @@ if not os.environ.get("REDIS_CACHE_URL"):
 if not os.environ.get("CELERY_BROKER_URL"):
     CELERY_TASK_ALWAYS_EAGER = True
     CELERY_TASK_EAGER_PROPAGATES = True
+
+# Without MinIO/S3 configured, files are kept in memory (lost on restart).
+if not os.environ.get("S3_BUCKET") and not os.environ.get("STORAGE_BACKEND"):
+    STORAGE_BACKEND = "apps.documents.storage.InMemoryObjectStorage"
+if not os.environ.get("FILE_SCANNER"):
+    FILE_SCANNER = "apps.documents.inspection.NoScanner"

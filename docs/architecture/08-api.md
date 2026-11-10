@@ -129,3 +129,21 @@ The interactive reference, generated from code, is at `/api/docs/` (Swagger UI) 
 3. `GET /me/memberships/` → user picks an organisation → send `X-Organisation-ID` on every tenant call.
 4. `GET /me/access/` → show only what the user may do. The server still checks every request.
 5. `403 mfa_required` → ask the user to set up two-step verification and sign in again.
+
+
+## 10. Implemented endpoints (Phase 3)
+
+| Endpoint | Auth | Purpose |
+|----------|------|---------|
+| `GET /countries/`, `/countries/{code}/`, `/countries/{code}/tax-rates/`, `/currencies/` | access token | Reference data for forms and documents |
+| `GET /plans/` | access token | Public plans, limits, modules and prices |
+| `GET /subscription/` | tenant (`subscriptions.subscription.view`) | Plan, status, modules and usage against limits |
+| `POST /subscription/change-plan/`, `POST/DELETE /subscription/cancellation/` | tenant (`subscriptions.subscription.manage`) | Change plan; schedule or withdraw cancellation |
+| `GET /subscription/invoices/` | tenant (`subscriptions.invoice.view`) | Platform-fee invoices |
+| `GET /notifications/` (`?unread=true`), `POST /notifications/{id}/read/`, `POST /notifications/read-all/`, `GET /notifications/unread-count/` | tenant (own) | In-app inbox |
+| `GET/PUT /notification-preferences/`, `GET /notification-categories/` | tenant (own) | Channels per category (mandatory notices cannot be switched off) |
+| `/notification-templates/` | tenant (`notifications.template.manage`) | Organisation's own wording |
+| `POST /files/` → `POST /files/{id}/complete/` → `GET /files/{id}/download/`; `GET /files/`, `GET/DELETE /files/{id}/` | tenant | Uploads (client POSTs the file to `upload.url` with `upload.form_fields`), verification, 60-second download links |
+| `POST /platform/organisations/{id}/entitlement-overrides/`, `POST /platform/organisations/{id}/invoices/{invoice_id}/mark-paid/` | platform staff + two-step | Grant exceptions; record payments |
+
+Plan limits return `403 plan_limit_reached`; modules outside the plan return `403 module_not_enabled`.

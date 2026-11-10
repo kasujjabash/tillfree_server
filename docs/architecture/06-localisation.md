@@ -1,5 +1,12 @@
 # 06 — Countries and Localisation
 
+## 0. Implemented (Phase 3)
+
+- Reference data for **Uganda, Kenya, Tanzania, Rwanda** (+ USD) is seeded: currencies with minor units, default timezone and languages, July financial year, mobile-money provider codes, SMS provider, fiscal-invoicing system (EFRIS, eTIMS, EFD/VFD, EBM: recorded only, not integrated) and standard/zero VAT rates. **Tax rates must be confirmed with a tax adviser before invoicing.**
+- Creating an organisation needs only a name and an enabled country; currency, timezone and language default from the country.
+- `common.money.Money` and `localisation.money()` / `format_money()` / `format_date()` are the only ways to handle and display money.
+- Read-only API: `/countries/`, `/countries/{code}/`, `/countries/{code}/tax-rates/`, `/currencies/`.
+
 ## 1. Principle
 
 Country-specific behaviour lives in **data** (country configuration, reference tables) and in **provider adapters** behind interfaces. Shared business logic asks questions ("what tax rates apply to this branch on this date?", "which payment providers are available?") and never contains `if country == "UG"`.

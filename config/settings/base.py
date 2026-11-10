@@ -44,8 +44,13 @@ INSTALLED_APPS = [
     "common",
     # Domains
     "apps.audit",
+    "apps.events",
     "apps.identity",
+    "apps.localisation",
     "apps.organisations",
+    "apps.subscriptions",
+    "apps.notifications",
+    "apps.documents",
     "apps.access",
 ]
 
@@ -201,6 +206,32 @@ EMAIL_USE_TLS = env_bool("EMAIL_USE_TLS", False)
 EMAIL_TIMEOUT = 10
 DEFAULT_FROM_EMAIL = env_str("DEFAULT_FROM_EMAIL", "Tillfree <no-reply@localhost>")
 
+# ------------------------------------------------------------------ subscriptions
+DEFAULT_PLAN_CODE = env_str("DEFAULT_PLAN_CODE", "starter")
+
+# ------------------------------------------------------------------ notifications (SMS)
+SMS_BACKEND = env_str("SMS_BACKEND", "apps.notifications.sms.ConsoleSmsGateway")
+AFRICASTALKING_USERNAME = env_str("AFRICASTALKING_USERNAME", "")
+AFRICASTALKING_API_KEY = env_str("AFRICASTALKING_API_KEY", "")
+AFRICASTALKING_SENDER_ID = env_str("AFRICASTALKING_SENDER_ID", "")
+AFRICASTALKING_SANDBOX = env_bool("AFRICASTALKING_SANDBOX", True)
+
+# ------------------------------------------------------------------ documents (object storage)
+STORAGE_BACKEND = env_str("STORAGE_BACKEND", "apps.documents.storage.S3ObjectStorage")
+S3_ENDPOINT_URL = env_str("S3_ENDPOINT_URL", "")  # empty = AWS
+S3_PUBLIC_ENDPOINT_URL = env_str("S3_PUBLIC_ENDPOINT_URL", "")  # address browsers use, if different
+S3_REGION = env_str("S3_REGION", "us-east-1")
+S3_BUCKET = env_str("S3_BUCKET", "tillfree-files")
+S3_ACCESS_KEY_ID = env_str("S3_ACCESS_KEY_ID", "")
+S3_SECRET_ACCESS_KEY = env_str("S3_SECRET_ACCESS_KEY", "")
+FILES_MAX_BYTES = env_int("FILES_MAX_BYTES", 10 * 1024 * 1024)
+FILES_ALLOWED_TYPES = env_list(
+    "FILES_ALLOWED_TYPES", "image/png,image/jpeg,image/webp,application/pdf"
+)
+FILE_SCANNER = env_str("FILE_SCANNER", "apps.documents.inspection.ClamdScanner")
+CLAMD_HOST = env_str("CLAMD_HOST", "localhost")
+CLAMD_PORT = env_int("CLAMD_PORT", 3310)
+
 # ------------------------------------------------------------------ i18n / time
 # Timestamps are stored in UTC. Business dates use the branch/organisation
 # timezone (docs/architecture/06-localisation.md §5), never this setting.
@@ -317,7 +348,18 @@ CELERY_WORKER_PREFETCH_MULTIPLIER = 1
 CELERY_TASK_TIME_LIMIT = env_int("CELERY_TASK_TIME_LIMIT", 300)
 CELERY_TASK_SOFT_TIME_LIMIT = env_int("CELERY_TASK_SOFT_TIME_LIMIT", 240)
 CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
-CELERY_BEAT_SCHEDULE: dict[str, Any] = {}
+CELERY_BEAT_SCHEDULE: dict[str, Any] = {
+    # Backstop for the transactional outbox (events are normally relayed right after commit).
+    "relay-outbox": {"task": "apps.events.tasks.relay_outbox", "schedule": 30.0},
+    "renew-subscriptions": {
+        "task": "apps.subscriptions.tasks.renew_due_subscriptions",
+        "schedule": 6 * 3600.0,
+    },
+    "purge-stale-uploads": {
+        "task": "apps.documents.tasks.purge_stale_uploads",
+        "schedule": 24 * 3600.0,
+    },
+}
 
 # ------------------------------------------------------------------ observability
 LOGGING_CONFIG = "logging.config.dictConfig"

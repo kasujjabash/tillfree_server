@@ -58,19 +58,35 @@ def test_unverified_user_cannot_create_organisation(make_user, client_for):
 
 
 def test_organisation_input_is_validated(make_user, client_for):
-    response = client_for(make_user()).post(
+    client = client_for(make_user())
+    unsupported = client.post(
+        "/api/v1/organisations/", {"name": "X", "country_code": "ZZ"}, format="json"
+    )
+    assert unsupported.status_code == 400
+    assert unsupported.json()["errors"][0]["code"] == "country_not_supported"
+    bad_tz = client.post(
         "/api/v1/organisations/",
-        {
-            "name": "X",
-            "country_code": "ug",
-            "base_currency": "UGX",
-            "default_timezone": "Nope/Nope",
-        },
+        {"name": "X", "country_code": "UG", "default_timezone": "Nope/Nope"},
         format="json",
     )
-    assert response.status_code == 400
-    fields = {e["field"] for e in response.json()["errors"]}
-    assert {"country_code", "default_timezone"} <= fields
+    assert bad_tz.status_code == 400
+    assert {e["field"] for e in bad_tz.json()["errors"]} == {"default_timezone"}
+
+
+def test_organisation_defaults_come_from_the_country(make_user, client_for):
+    client = client_for(make_user())
+    created = client.post(
+        "/api/v1/organisations/", {"name": "Nairobi Shop", "country_code": "KE"}, format="json"
+    )
+    assert created.status_code == 201
+    org = client.get(
+        "/api/v1/organisations/current/", HTTP_X_ORGANISATION_ID=created.json()["id"]
+    ).json()
+    assert (org["base_currency"], org["default_timezone"], org["default_locale"]) == (
+        "KES",
+        "Africa/Nairobi",
+        "en",
+    )
 
 
 def test_country_and_currency_cannot_be_changed(new_org, client_for):

@@ -13,9 +13,15 @@ class OrganisationCreateSerializer(serializers.Serializer[Any]):
     name = serializers.CharField(max_length=200)
     legal_name = serializers.CharField(max_length=200, required=False, allow_blank=True, default="")
     country_code = serializers.CharField(max_length=2, help_text="ISO 3166-1 alpha-2, e.g. UG")
-    base_currency = serializers.CharField(max_length=3, help_text="ISO 4217, e.g. UGX")
-    default_timezone = serializers.CharField(max_length=64, help_text="IANA, e.g. Africa/Kampala")
-    default_locale = serializers.CharField(max_length=35, required=False, default="en")
+    base_currency = serializers.CharField(
+        max_length=3, required=False, help_text="ISO 4217; defaults to the country's currency"
+    )
+    default_timezone = serializers.CharField(
+        max_length=64, required=False, help_text="IANA; defaults to the country's timezone"
+    )
+    default_locale = serializers.CharField(
+        max_length=35, required=False, help_text="BCP 47; defaults to the country's first language"
+    )
 
 
 class OrganisationSummarySerializer(serializers.ModelSerializer[Organisation]):

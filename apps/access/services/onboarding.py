@@ -12,6 +12,7 @@ from apps.organisations.public import (
     create_organisation_record,
     initialise_organisation,
 )
+from apps.subscriptions.public import start_trial
 from common.exceptions import PermissionDeniedError
 from common.tenancy.context import tenant_context, user_context
 
@@ -40,6 +41,7 @@ def create_organisation(
     organisation = create_organisation_record(**{f: data[f] for f in CREATE_FIELDS if f in data})
     with tenant_context(organisation.id), user_context(user.id):
         initialise_organisation(organisation)
+        start_trial(organisation)
         membership = Membership.objects.create(user=user)
         RoleAssignment.objects.create(
             membership=membership, template_key=registry.OWNER, granted_by=user

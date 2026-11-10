@@ -1,9 +1,0 @@
-{% autoescape off %}Hello,
-
-{{ granted_by.get_full_name }} gave {% if member_email %}{{ member_email }}{% else %}the members holding it{% endif %} the role "{{ role_name }}" in {{ organisation.name }}. It includes sensitive permissions:
-
-{% for p in permissions %}- {{ p }}
-{% endfor %}
-You receive this because you are an Owner. If this was not expected, review the organisation's roles now.
-
-— The {{ product_name }} team{% endautoescape %}

@@ -17,9 +17,10 @@ from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 from apps.audit.public import record
+from apps.events.public import publish
 from apps.organisations.public import Branch, Department
+from apps.subscriptions.public import ensure_within_limit
 from common.exceptions import BusinessRuleViolation, ConflictError, PermissionDeniedError
-from common.mail import queue_email
 from common.permissions import Sensitivity
 
 from .. import registry, selectors
@@ -85,18 +86,17 @@ def _ensure_owner_remains(**kwargs: Any) -> None:
         )
 
 
-def _notify_owners_of_sensitive_grant(
-    ctx: AccessContext, *, member_email: str, role_name: str, sensitive: list[str]
+def _publish_sensitive_grant(
+    ctx: AccessContext, *, role_name: str, sensitive: list[str], **ids: str | None
 ) -> None:
-    queue_email(
-        to=selectors.owner_emails(),
-        template="access/email/sensitive_role_granted",
-        context={
-            "organisation": ctx.organisation,
-            "granted_by": ctx.user,
-            "member_email": member_email,
-            "role_name": role_name,
+    publish(
+        "access.sensitive_role_granted",
+        organisation_id=ctx.organisation_id,
+        payload={
+            "role_name": role_name[:100],
             "permissions": sensitive,
+            "granted_by": str(ctx.user_id),
+            **ids,
         },
     )
 
@@ -143,6 +143,8 @@ def reactivate_membership(ctx: AccessContext, membership: Membership) -> Members
     _ensure_can_manage(ctx, membership)
     if membership.status != Membership.Status.SUSPENDED:
         raise ConflictError(_("Only suspended members can be reactivated."), code="not_suspended")
+    active = Membership.objects.filter(status=Membership.Status.ACTIVE).count()
+    ensure_within_limit(ctx.entitlements, "max_members", current=active)
     membership.status = Membership.Status.ACTIVE
     membership.save(update_fields=["status", "updated_at"])
     record(
@@ -251,8 +253,8 @@ def update_role(ctx: AccessContext, role: Role, changes: dict[str, Any]) -> Role
     )
     sensitive_added = _sensitive(added)
     if sensitive_added and role.assignments.exists():
-        _notify_owners_of_sensitive_grant(
-            ctx, member_email="", role_name=role.name, sensitive=sensitive_added
+        _publish_sensitive_grant(
+            ctx, role_name=role.name, sensitive=sensitive_added, role_id=str(role.id)
         )
     return role
 
@@ -326,11 +328,11 @@ def assign_role(
         },
     )
     if sensitive:
-        _notify_owners_of_sensitive_grant(
+        _publish_sensitive_grant(
             ctx,
-            member_email=membership.user.email,
             role_name=selectors.role_label(template_key=template_key, role=role),
             sensitive=sensitive,
+            assignment_id=str(assignment.id),
         )
     return assignment
 

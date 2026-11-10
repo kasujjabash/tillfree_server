@@ -5,8 +5,12 @@ from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
 from apps.access.api import urls as access_urls
 from apps.audit.api import urls as audit_urls
+from apps.documents.api import urls as document_urls
 from apps.identity.api import urls as identity_urls
+from apps.localisation.api import urls as localisation_urls
+from apps.notifications.api import urls as notification_urls
 from apps.organisations.api import urls as organisation_urls
+from apps.subscriptions.api import urls as subscription_urls
 from common.health import views as health
 
 # Domain routes (docs/architecture/08-api.md §1).
@@ -16,6 +20,10 @@ api_v1: list[URLPattern | URLResolver] = [
     path("", include(organisation_urls.urlpatterns)),
     path("", include(access_urls.urlpatterns)),
     path("", include(audit_urls.urlpatterns)),
+    path("", include(localisation_urls.urlpatterns)),
+    path("", include(subscription_urls.urlpatterns)),
+    path("", include(notification_urls.urlpatterns)),
+    path("", include(document_urls.urlpatterns)),
 ]
 
 urlpatterns: list[URLPattern | URLResolver] = [

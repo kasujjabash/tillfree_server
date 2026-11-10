@@ -4,7 +4,7 @@ API modules of other domains use the tenant view base classes and the authorisat
 functions; services use ``AccessContext`` as the actor description.
 """
 
-from .api.base import AnyBranch, TenantAPIMixin, TenantAPIView
+from .api.base import AnyBranch, IsPlatformStaff, TenantAPIMixin, TenantAPIView
 from .authorization import (
     AccessContext,
     authorize,
@@ -12,14 +12,17 @@ from .authorization import (
     holds,
     permitted_branch_ids,
 )
+from .services.invitations import seats_in_use
 
 __all__ = [
     "AccessContext",
     "AnyBranch",
+    "IsPlatformStaff",
     "TenantAPIMixin",
     "TenantAPIView",
     "authorize",
     "authorize_anywhere",
     "holds",
     "permitted_branch_ids",
+    "seats_in_use",
 ]

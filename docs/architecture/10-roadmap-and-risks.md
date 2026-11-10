@@ -16,9 +16,12 @@ Each phase ends with its exit criteria met, tests passing in CI, and documentati
 **Delivered:** everything listed, plus email change, time-boxed owner-approved support access, and the architecture checks in CI. 222 tests (security suites for cross-tenant access, IDOR, privilege escalation, branch scope, token reuse/expiry/revocation, brute force), 91% coverage, OpenAPI schema with zero warnings.
 **Decided while building:** sensitive role grants are audited and emailed to all Owners (no second approver); web clients keep the refresh token in an HttpOnly cookie, mobile clients in the body; rate limits fail closed when Redis is down (the readiness probe then takes the instance out of rotation).
 
-### Phase 3 — Platform services
+### Phase 3 — Platform services ✅ implemented 2026-11-10
 **Builds:** localisation reference data and country configuration (seeded for UG, KE, TZ, RW as a start); `Money`; modules, plans, subscriptions, entitlements, usage limits (entitlement enforcement in `authorize()`); notifications (email adapter, one SMS adapter, in-app, templates, preferences, retries); documents (presigned upload/download, scan status); transactional outbox.
 **Exit:** a module can be enabled/disabled per organisation and the backend enforces it; notifications deliver with retries and tenant isolation; file access security tests pass.
+**Delivered:** as listed. 314 tests at 91% coverage; schema with zero warnings; end-to-end journey verified on a live server under the restricted database role.
+**Decided while building:** organisation/branch country and currency are validated against reference data in services rather than by cross-domain foreign keys; plan limits count pending invitations as seats; the outbox is outside RLS (ADR-0007); organisation-written notification templates are placeholders-only; production requires a malware scanner and persistent storage.
+**Needs a decision from you:** plan prices per currency and final limits (seeded values are placeholders); tax rates confirmed by a tax adviser; the SMS sender ID; which S3-compatible provider and region (ties to data residency).
 
 ### Phase 4 — Shared operational capabilities
 **Builds:** people/workforce (staff profiles linked to memberships), customers, inventory (porting the existing FEFO batch and stock movement logic), procurement/suppliers, billing foundations (tenant invoices, payments, one mobile-money provider adapter), reporting foundations (async exports, daily aggregates), workflows only if two concrete use cases need them.

@@ -17,6 +17,7 @@ from apps.access.public import (
     authorize,
     permitted_branch_ids,
 )
+from apps.subscriptions.public import ensure_within_limit
 from common.api.pagination import SmallListPagination
 from common.exceptions import PermissionDeniedError
 
@@ -120,6 +121,9 @@ class BranchViewSet(
     def create(self, request: Request) -> Response:
         data = s.BranchSerializer(data=request.data)
         data.is_valid(raise_exception=True)
+        ensure_within_limit(
+            self.ctx.entitlements, "max_branches", current=services.active_branch_count()
+        )
         branch = services.create_branch(
             self.ctx.organisation, dict(data.validated_data), actor_id=self.ctx.user_id
         )
@@ -131,6 +135,10 @@ class BranchViewSet(
         authorize(self.ctx, "organisations.branch.manage", branch_id=branch.id)
         data = s.BranchSerializer(branch, data=request.data, partial=True)
         data.is_valid(raise_exception=True)
+        if data.validated_data.get("is_active") and not branch.is_active:
+            ensure_within_limit(
+                self.ctx.entitlements, "max_branches", current=services.active_branch_count()
+            )
         branch = services.update_branch(
             branch, dict(data.validated_data), actor_id=self.ctx.user_id
         )

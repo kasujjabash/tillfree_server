@@ -16,6 +16,14 @@ if not JWT_SIGNING_KEYS:
 if not FIELD_ENCRYPTION_KEYS:
     raise ImproperlyConfigured("FIELD_ENCRYPTION_KEYS must be set in production (Fernet keys).")
 
+if FILE_SCANNER.endswith("NoScanner") and not env_bool("FILES_ALLOW_UNSCANNED", False):
+    raise ImproperlyConfigured(
+        "Uploaded files must be malware-scanned in production. Configure FILE_SCANNER "
+        "(e.g. ClamdScanner) or explicitly accept the risk with FILES_ALLOW_UNSCANNED=true."
+    )
+if STORAGE_BACKEND.endswith("InMemoryObjectStorage"):
+    raise ImproperlyConfigured("STORAGE_BACKEND must be persistent object storage in production.")
+
 ALLOWED_HOSTS = env_list("DJANGO_ALLOWED_HOSTS", "")
 if not ALLOWED_HOSTS:
     raise ImproperlyConfigured("DJANGO_ALLOWED_HOSTS must be set in production.")

@@ -17,6 +17,7 @@ from django.utils.translation import gettext_lazy as _
 
 from apps.identity.public import User
 from apps.organisations.public import Organisation
+from apps.subscriptions.public import Entitlements
 from common.exceptions import PermissionDeniedError
 from common.permissions import Sensitivity
 
@@ -47,6 +48,7 @@ class AccessContext:
     user: User
     organisation: Organisation
     grants: tuple[Grant, ...]
+    entitlements: Entitlements
     amr: tuple[str, ...] = ()
     session_id: UUID | None = None
     require_mfa: bool = False
@@ -103,18 +105,13 @@ def permitted_branch_ids(ctx: AccessContext, code: str) -> set[UUID] | None:
     return {g.branch_id for g in ctx.grants if g.branch_id and code in g.permissions}
 
 
-def module_enabled(organisation_id: UUID, module: str) -> bool:
-    """Subscription entitlements arrive in Phase 3; every module is enabled until then."""
-    return True
-
-
 def _precheck(ctx: AccessContext, code: str) -> None:
     permission = registry.get_permission(code)
     if (
         ctx.require_mfa or permission.sensitivity == Sensitivity.CLINICAL
     ) and not ctx.mfa_satisfied:
         raise MFARequired(_("Two-step verification is required for this action."))
-    if not module_enabled(ctx.organisation_id, permission.module):
+    if not ctx.entitlements.has_module(permission.module):
         raise ModuleNotEnabled(_("This module is not enabled for the organisation."))
 
 

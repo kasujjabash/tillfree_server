@@ -169,3 +169,88 @@ def test_unsupported_methods_are_405_not_500(new_org, client_for):
     client = client_for(owner, org)
     assert client.put(f"/api/v1/roles/{role.id}/", {}, format="json").status_code == 405
     assert client.delete("/api/v1/branches/").status_code == 405
+
+
+# ------------------------------------------------------------------ Phase 3 domains
+@pytest.fixture
+def org_b_records(new_org):
+    from django.utils import timezone
+
+    from apps.documents.models import FileObject
+    from apps.notifications.models import Notification, NotificationTemplate
+    from apps.subscriptions.models import Subscription, SubscriptionInvoice
+
+    org_a, owner_a = new_org("Org A", "owner-a@example.com")
+    org_b, owner_b = new_org("Org B", "owner-b@example.com")
+    with tenant_context(org_b.id):
+        records = {
+            "files": FileObject.objects.create(
+                storage_key=f"org/{org_b.id}/files/x",
+                original_name="secret.pdf",
+                declared_content_type="application/pdf",
+                content_type="application/pdf",
+                size_bytes=10,
+                status="available",
+                uploaded_by=owner_b,
+            ),
+            "notifications": Notification.objects.create(
+                recipient=owner_b, category="access.member_joined", title="t", body="b"
+            ),
+            "notification-templates": NotificationTemplate.objects.create(
+                category="access.member_joined", channel="in_app", subject="s", body="b"
+            ),
+        }
+        sub = Subscription.objects.get()
+        records["invoice"] = SubscriptionInvoice.objects.create(
+            subscription=sub,
+            number="TF-B-1",
+            period_start=timezone.now(),
+            period_end=timezone.now(),
+            amount=1,
+            currency="UGX",
+            due_at=timezone.now(),
+        )
+    return org_a, owner_a, org_b, records
+
+
+@pytest.mark.parametrize(
+    ("route", "suffix", "method"),
+    [
+        ("files", "", "get"),
+        ("files", "download/", "get"),
+        ("files", "complete/", "post"),
+        ("files", "", "delete"),
+        ("notifications", "read/", "post"),
+        ("notification-templates", "", "get"),
+        ("notification-templates", "", "patch"),
+        ("notification-templates", "", "delete"),
+    ],
+)
+def test_phase3_objects_of_other_tenants_are_404(org_b_records, client_for, route, suffix, method):
+    org_a, owner_a, _org_b, records = org_b_records
+    client = client_for(owner_a, org_a)
+    response = getattr(client, method)(
+        f"/api/v1/{route}/{records[route].id}/{suffix}", {}, format="json"
+    )
+    assert response.status_code == 404
+
+
+@pytest.mark.parametrize(
+    "route", ["files", "notifications", "notification-templates", "subscription/invoices"]
+)
+def test_phase3_lists_never_contain_other_tenants_rows(org_b_records, client_for, route):
+    org_a, owner_a, _org_b, records = org_b_records
+    rows = client_for(owner_a, org_a).get(f"/api/v1/{route}/").json()["results"]
+    foreign = {str(r.id) for r in records.values()}
+    assert not foreign & {str(row["id"]) for row in rows}
+
+
+def test_platform_cannot_mark_another_orgs_invoice_via_wrong_org(
+    org_b_records, make_staff, client_for
+):
+    org_a, _owner_a, _org_b, records = org_b_records
+    staff = make_staff()
+    response = client_for(staff, mfa=True).post(
+        f"/api/v1/platform/organisations/{org_a.id}/invoices/{records['invoice'].id}/mark-paid/"
+    )
+    assert response.status_code == 404

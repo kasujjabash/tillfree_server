@@ -298,6 +298,17 @@ Not shown: `OUTBOX_EVENT` (events app), `IDEMPOTENCY_RECORD` (common API), `USAG
 - `AuditEvent` read policy: the organisation's events, plus a user's own account events (no organisation) under `user_context`. No UPDATE or DELETE policy exists, so the log is append-only even for the table owner.
 - Identity tables (`identity_authsession`, `identity_refreshtoken`, `identity_onetimetoken`, `identity_totpdevice`, `identity_recoverycode`) are user-owned and never accessed through an organisation context. Tokens are stored only as SHA-256 hashes; TOTP secrets are encrypted with Fernet (`FIELD_ENCRYPTION_KEYS`).
 
+### Phase 3 tables
+
+| Table | Category | RLS | Notes |
+|-------|----------|-----|-------|
+| Currency, Country, CountryConfiguration, TaxRate | Global reference | No | Platform-managed (admin); disabled, never deleted. Organisation/branch country and currency codes are validated against them in services (no cross-domain foreign key). |
+| Module, Plan, PlanEntitlement, PlanPrice | Global catalogue | No | Prices per currency and interval; none seeded. |
+| Subscription, EntitlementOverride, SubscriptionInvoice | Tenant | Yes | At most one current subscription per organisation (partial unique index). |
+| NotificationTemplate, NotificationPreference, Notification, NotificationDelivery | Tenant | Yes | `Notification.dedupe_key` makes event-driven notifications idempotent. |
+| FileObject (`documents_file`) | Tenant | Yes | Bytes live in object storage under `org/<organisation id>/files/<file id>`. |
+| OutboxEvent, ProcessedEvent | Internal | No | Identifiers only; see ADR-0007. |
+
 ## 3. Conventions
 
 | Topic | Rule |
